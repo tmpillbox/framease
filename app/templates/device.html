@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% import "bootstrap_wtf.html" as wtf %}
+
+{% block content %}
+    <table class="table table-hover">
+        <tr>
+            <td><h1>{{ device.devicename }} Details</h1></td>
+        </tr>
+        <tr>
+            <td>Hostname: {{ device.hostname }}</td>
+            <td>SSH: <a href="ssh://{{device.hostname}}:{{device.ssh_port}}">{{ device.ssh_port }}</a></td>
+            <td>HTTPS: <a href="https://{{device.hostname}}:{{device.https_port}}">{{ device.https_port }}</a></td>
+        </tr>
+    </table>
+    {% for validation in validations %}
+        {% include '_validation_selector.html' %}
+    {% endfor %}
+    <nav aria-label="Validation navigation">
+        <ul class="pagination">
+            <li class="page-item{% if not prev_url %} disabled{% endif %}">
+                <a class="page-link" href="{{ prev_url }}">
+                    <span aria-hidden="true">&larr;</span> Newer Validations
+                </a>
+            </li>
+            <li class="page-item{% if not next_url %} disabled{% endif %}">
+                <a class="page-link" href="{{ next_url }}">
+                    Older Validations <span aria-hidden="true">&rarr;</span>
+                </a>
+            </li>
+        </ul>
+    </nav>  
+{% endblock %}
