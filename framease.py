@@ -9,10 +9,6 @@ app = create_app()
 with app.app_context():
     db.create_all()
 
-@app.before_first_request
-def create_tables():
-  db.create_all()
-
 
 @app.shell_context_processor
 def make_shell_context():

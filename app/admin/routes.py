@@ -244,10 +244,18 @@ def suite(suiteid):
 def suite_cases(suiteid):
   suite = db.first_or_404(sa.select(TestSuite).where(TestSuite.id == suiteid))
   form = AddSuiteCaseForm()
+  #query = sa.select(TestCase).where(TestCase.archived == False).order_by(TestCase.name.asc()).order_by(TestCase.version.asc())
+  query = sa.select(TestCase)
+  all_cases = db.session.scalars(query).all()
+  form.case.choices = [
+     ( case.id, f'{case.name} ({case.version})' )
+     for case in all_cases
+  ]
   if form.validate_on_submit():
     suite.add_case(form.case.data, form.sequence.data)
+    db.session.commit()
     flash('Case added.')
-    return redirect(url_for('admin.suite_cases', suite=suite, page=request.args.get('page', 1, type=int)))
+    return redirect(url_for('admin.suite_cases', suiteid=suiteid, page=request.args.get('page', 1, type=int)))
   query = sa.select(TestCase).where(TestCase.archived == False).order_by(TestCase.name.asc(), TestCase.version.asc())
   all_cases = db.session.scalars(query).all()
   cases = suite.cases
@@ -265,6 +273,12 @@ def add_suite_case(suiteid):
   elif suite.final:
     flash('Test Suite is Locked.', 'error')
   form = AddSuiteCaseForm()
+  query = sa.select(TestCase).where(TestCase.archived == False).order_by(TestCase.name.asc(), TestCase.version.asc())
+  all_cases = db.session.scalars(query).all()
+  form.case.choices = [
+     ( case.id, f'{case.name} ({case.version})' )
+     for case in all_cases
+  ]
   if form.validate_on_submit():
     suite.add_case(form.case.data, form.sequence.data)
     db.session.commit()

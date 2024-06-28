@@ -1,8 +1,8 @@
 """initial
 
-Revision ID: 8a8e85050b7e
+Revision ID: 10a0ed9049de
 Revises: 
-Create Date: 2024-06-26 22:28:50.163451
+Create Date: 2024-06-27 21:46:11.850179
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '8a8e85050b7e'
+revision = '10a0ed9049de'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -24,7 +24,7 @@ def upgrade():
     sa.Column('hostname', sa.String(), nullable=False),
     sa.Column('ssh_port', sa.Integer(), nullable=False),
     sa.Column('https_port', sa.Integer(), nullable=False),
-    sa.Column('archived', sa.Boolean(), nullable=False),
+    sa.Column('archived', sa.Boolean(), server_default=sa.text('0'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     with op.batch_alter_table('device', schema=None) as batch_op:
@@ -34,7 +34,7 @@ def upgrade():
     op.create_table('role',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=255), nullable=False),
-    sa.Column('active', sa.Boolean(), nullable=False),
+    sa.Column('active', sa.Boolean(), server_default=sa.text('0'), nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('name')
     )
@@ -42,7 +42,8 @@ def upgrade():
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=80), nullable=False),
     sa.Column('version', sa.String(length=12), nullable=True),
-    sa.Column('archived', sa.Boolean(), nullable=False),
+    sa.Column('archived', sa.Boolean(), server_default=sa.text('0'), nullable=False),
+    sa.Column('final', sa.Boolean(), server_default=sa.text('0'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     with op.batch_alter_table('test_suite', schema=None) as batch_op:
@@ -57,7 +58,7 @@ def upgrade():
     sa.Column('about_me', sa.String(), nullable=True),
     sa.Column('last_seen', sa.DateTime(), nullable=True),
     sa.Column('page_size', sa.Integer(), nullable=True),
-    sa.Column('admin', sa.Boolean(), nullable=False),
+    sa.Column('admin', sa.Boolean(), server_default=sa.text('0'), nullable=False),
     sa.Column('token', sa.String(length=32), nullable=True),
     sa.Column('token_expiration', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id')
@@ -74,10 +75,10 @@ def upgrade():
     sa.Column('name', sa.String(), nullable=False),
     sa.Column('data', sa.Text(), nullable=False),
     sa.Column('timestamp', sa.Float(), nullable=False),
-    sa.Column('archived', sa.Boolean(), nullable=False),
-    sa.Column('submitted', sa.Boolean(), nullable=False),
-    sa.Column('approved', sa.Boolean(), nullable=False),
-    sa.Column('final', sa.Boolean(), nullable=False),
+    sa.Column('archived', sa.Boolean(), server_default=sa.text('0'), nullable=False),
+    sa.Column('submitted', sa.Boolean(), server_default=sa.text('0'), nullable=False),
+    sa.Column('approved', sa.Boolean(), server_default=sa.text('0'), nullable=False),
+    sa.Column('final', sa.Boolean(), server_default=sa.text('0'), nullable=False),
     sa.ForeignKeyConstraint(['device_id'], ['device.id'], ),
     sa.ForeignKeyConstraint(['suite_id'], ['test_suite.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -106,7 +107,7 @@ def upgrade():
     sa.Column('name', sa.String(length=128), nullable=False),
     sa.Column('description', sa.String(length=128), nullable=True),
     sa.Column('user_id', sa.Integer(), nullable=False),
-    sa.Column('complete', sa.Boolean(), nullable=False),
+    sa.Column('complete', sa.Boolean(), server_default=sa.text('0'), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -120,7 +121,7 @@ def upgrade():
     sa.Column('function', sa.String(), nullable=True),
     sa.Column('data', sa.Text(), nullable=True),
     sa.Column('approver_role_id', sa.Integer(), nullable=True),
-    sa.Column('archived', sa.Boolean(), nullable=False),
+    sa.Column('archived', sa.Boolean(), server_default=sa.text('0'), nullable=False),
     sa.ForeignKeyConstraint(['approver_role_id'], ['role.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -141,9 +142,9 @@ def upgrade():
     sa.Column('validation_id', sa.Integer(), nullable=False),
     sa.Column('timestamp', sa.DateTime(), nullable=False),
     sa.Column('sequence', sa.Integer(), nullable=False),
-    sa.Column('deleted', sa.Boolean(), nullable=False),
-    sa.Column('is_override', sa.Boolean(), nullable=False),
-    sa.Column('force_failure', sa.Boolean(), nullable=False),
+    sa.Column('deleted', sa.Boolean(), server_default=sa.text('0'), nullable=False),
+    sa.Column('is_override', sa.Boolean(), server_default=sa.text('0'), nullable=False),
+    sa.Column('force_failure', sa.Boolean(), server_default=sa.text('0'), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.ForeignKeyConstraint(['validation_id'], ['device_validation.id'], ),
     sa.PrimaryKeyConstraint('id')

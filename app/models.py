@@ -29,19 +29,19 @@ UserRole = sa.Table(
   sa.Column('role_id', sa.Integer, sa.ForeignKey('role.id'), primary_key=True)
 )
 
-SuiteCase = sa.Table(
-  'suite_case',
-  db.metadata,
-  sa.Column('suite_id', sa.Integer, sa.ForeignKey('test_suite.id'), primary_key=True),
-  sa.Column('case_id', sa.Integer, sa.ForeignKey('test_case.id'), primary_key=True),
-  sa.Column('sequence', sa.Integer, index=True),
-)
+# SuiteCase = sa.Table(
+#   'suite_case',
+#   db.metadata,
+#   sa.Column('suite_id', sa.Integer, sa.ForeignKey('test_suite.id'), primary_key=True),
+#   sa.Column('case_id', sa.Integer, sa.ForeignKey('test_case.id'), primary_key=True),
+#   sa.Column('sequence', sa.Integer, index=True),
+# )
 
 
 class Role(db.Model):
   id: so.Mapped[int] = so.mapped_column(primary_key=True)
   name: so.Mapped[str] = so.mapped_column(sa.String(255), nullable=False, unique=True)
-  active: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=false())
+  active: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=sa.false())
 
   users: so.Mapped[List['User']] = so.relationship(secondary=UserRole, back_populates='roles')
 
@@ -56,7 +56,7 @@ class User(db.Model, UserMixin):
   last_seen: so.Mapped[Optional[datetime]] = so.mapped_column(
     default=lambda: datetime.now(timezone.utc))
   page_size: so.Mapped[Optional[int]] = so.mapped_column(sa.Integer())
-  admin: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=false())
+  admin: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=sa.false())
   token: so.Mapped[Optional[str]] = so.mapped_column(sa.String(32), index=True, unique=True)
   token_expiration: so.Mapped[Optional[datetime]]
   notifications: so.WriteOnlyMapped['Notification'] = so.relationship(
@@ -183,7 +183,7 @@ class Task(db.Model):
   name: so.Mapped[str] = so.mapped_column(sa.String(128), index=True)
   description: so.Mapped[Optional[str]] = so.mapped_column(sa.String(128))
   user_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey(User.id))
-  complete: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=false())
+  complete: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=sa.false())
 
   user: so.Mapped[User] = so.relationship(back_populates='tasks')
 
@@ -205,7 +205,7 @@ class Device(db.Model):
   hostname: so.Mapped[str] = so.mapped_column(sa.String(), index=True)
   ssh_port: so.Mapped[int] = so.mapped_column(sa.Integer())
   https_port: so.Mapped[int] = so.mapped_column(sa.Integer())
-  archived: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=false())
+  archived: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=sa.false())
 
   validations: so.WriteOnlyMapped['DeviceValidation'] = so.relationship(back_populates='device')
 
@@ -217,14 +217,18 @@ class TestSuite(db.Model):
   id: so.Mapped[int] = so.mapped_column(primary_key=True)
   name: so.Mapped[str] = so.mapped_column(sa.String(80), index=True)
   version: so.Mapped[str] = so.mapped_column(sa.String(12), nullable=True)
-  archived: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=false())
-  final: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=false())
+  archived: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=sa.false())
+  final: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=sa.false())
 
   validations: so.WriteOnlyMapped['DeviceValidation'] = so.relationship(back_populates='suite')
-  cases: so.Mapped[List['TestCase']] = so.relationship(secondary=SuiteCase, back_populates='suites')
+  #cases: so.Mapped[List[Tuple['TestCase', str]]] = so.relationship(secondary=SuiteCase, back_populates='suites')
+  cases: so.Mapped[List['SuiteCase']] = so.relationship('SuiteCase', primaryjoin='TestSuite.id == SuiteCase.suite_id')
 
   def __repr__(self):
     return f'<TesTSuite({self.id}, {self.name}, {self.version})>'
+
+  def add_case(self, caseid, sequence):
+    self.cases.append(SuiteCase(self.id, caseid, sequence))
 
 
 class DeviceValidation(db.Model):
@@ -234,10 +238,10 @@ class DeviceValidation(db.Model):
   name: so.Mapped[str] = so.mapped_column(sa.String())
   data: so.Mapped[str] = so.mapped_column(sa.Text())
   timestamp: so.Mapped[float] = so.mapped_column(index=True, default=time)
-  archived: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=false())
-  submitted: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=false())
-  approved: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=false())
-  final: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=false())
+  archived: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=sa.false())
+  submitted: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=sa.false())
+  approved: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=sa.false())
+  final: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=sa.false())
 
   comments: so.WriteOnlyMapped['Comment'] = so.relationship(back_populates='device_validation')
   device: so.Mapped['Device'] = so.relationship(back_populates='validations')
@@ -251,11 +255,11 @@ class TestCase(db.Model):
   function: so.Mapped[str] = so.mapped_column(sa.String(), nullable=True)
   data: so.Mapped[str] = so.mapped_column(sa.Text(), nullable=True)
   approver_role_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey(Role.id), nullable=True)
-  archived: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=false())
+  archived: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=sa.false())
 
-  suites: so.Mapped[List['TestSuite']] = so.relationship(secondary=SuiteCase, back_populates='cases')
+  suites: so.Mapped[List['SuiteCase']] = so.relationship('SuiteCase', primaryjoin='TestCase.id == SuiteCase.case_id')
 
-  approver_role: so.Mapped[Role] = db.relationship(Role, primaryjoin='TestCase.approver_role_id == Role.id')
+  approver_role: so.Mapped[Role] = so.relationship(Role, primaryjoin='TestCase.approver_role_id == Role.id')
 
   def __repr__(self):
     return f'<TestCase({self.id}, {self.fucnction}, {self.data})>'
@@ -268,8 +272,32 @@ class Comment(db.Model):
   timestamp: so.Mapped[datetime] = so.mapped_column(
       index=True, default=lambda: datetime.now(timezone.utc))
   sequence: so.Mapped[int] = so.mapped_column(sa.Integer(), index=True)
-  deleted: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=false())
-  is_override: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=false())
-  force_failure: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=false())
+  deleted: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=sa.false())
+  is_override: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=sa.false())
+  force_failure: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=sa.false())
 
   device_validation: so.Mapped[DeviceValidation] = so.relationship(back_populates='comments')
+
+
+# SuiteCase = sa.Table(
+#   'suite_case',
+#   db.metadata,
+#   sa.Column('suite_id', sa.Integer, sa.ForeignKey('test_suite.id'), primary_key=True),
+#   sa.Column('case_id', sa.Integer, sa.ForeignKey('test_case.id'), primary_key=True),
+#   sa.Column('sequence', sa.Integer, index=True),
+# )
+
+
+class SuiteCase(db.Model):
+  suite_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey(TestSuite.id), primary_key=True)
+  case_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey(TestCase.id), primary_key=True)
+  sequence: so.Mapped[int] = so.mapped_column(sa.Integer, index=True)
+
+  suite: so.Mapped[TestSuite] = so.relationship(TestSuite, primaryjoin='SuiteCase.suite_id == TestSuite.id', back_populates='cases')
+  case: so.Mapped[TestCase] = so.relationship(TestCase, primaryjoin='SuiteCase.case_id == TestCase.id', back_populates='suites')
+
+  def __init__(self, suite_id, case_id, sequence, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    self.suite_id = suite_id
+    self.case_id = case_id
+    self.sequence = sequence
