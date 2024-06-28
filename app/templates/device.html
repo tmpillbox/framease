@@ -11,6 +11,11 @@
             <td>SSH: <a href="ssh://{{device.hostname}}:{{device.ssh_port}}">{{ device.ssh_port }}</a></td>
             <td>HTTPS: <a href="https://{{device.hostname}}:{{device.https_port}}">{{ device.https_port }}</a></td>
         </tr>
+        <tr>
+          <div class="btn-group" role="group" aria-label="Actions">
+            <a class="btn btn-primary" href="{{ url_for('main.edit_device_models', deviceid=device.id) }}">Edit Validation Models</a>
+          </div>            
+        </tr>
     </table>
     {% for validation in validations %}
         {% include '_validation_selector.html' %}

@@ -208,9 +208,25 @@ class Device(db.Model):
   archived: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=sa.false())
 
   validations: so.WriteOnlyMapped['DeviceValidation'] = so.relationship(back_populates='device')
+  validation_models: so.Mapped[List['DeviceValidationModel']] = so.relationship(back_populates='device')
 
   def __repr__(self):
     return f'<Device {self.devicename}>'
+
+
+class DeviceValidationModel(db.Model):
+  id: so.Mapped[int] = so.mapped_column(primary_key=True)
+  device_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey(Device.id), index=True)
+  validation_model: so.Mapped[str] = so.mapped_column(sa.String())
+  validation_model_data: so.Mapped[str] = so.mapped_column(sa.Text(), nullable=True)
+
+  device: so.Mapped[Device] = so.relationship(back_populates='validation_models')
+
+  def __repr__(self):
+    return f'<DeviceValidationModel: {self.device.devicename}, {self.validation_model}, {self.validation_model_data}>'
+
+  def is_configured(self):
+    return True
 
 
 class TestSuite(db.Model):
@@ -221,7 +237,6 @@ class TestSuite(db.Model):
   final: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=sa.false())
 
   validations: so.WriteOnlyMapped['DeviceValidation'] = so.relationship(back_populates='suite')
-  #cases: so.Mapped[List[Tuple['TestCase', str]]] = so.relationship(secondary=SuiteCase, back_populates='suites')
   cases: so.Mapped[List['SuiteCase']] = so.relationship('SuiteCase', primaryjoin='TestSuite.id == SuiteCase.suite_id')
 
   def __repr__(self):

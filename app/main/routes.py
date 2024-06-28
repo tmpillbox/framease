@@ -5,9 +5,9 @@ from flask import render_template, flash, redirect, url_for, request, g, current
 from flask_login import current_user, login_required
 from sqlalchemy.sql.expression import false
 
-from app import db, plugins
-from app.main.forms import DeviceForm, EmptyForm, TestCaseForm, TestSuiteForm, EditProfileForm
-from app.models import User, Device, TestSuite, TestCase, DeviceValidation, Notification
+from app import db, plugins, validation_models
+from app.main.forms import DeviceForm, EmptyForm, TestCaseForm, TestSuiteForm, EditProfileForm, NewDeviceValidationModelForm
+from app.models import User, Device, TestSuite, TestCase, DeviceValidation, Notification, DeviceValidationModel
 from app.main import bp
 
 
@@ -94,3 +94,70 @@ def device(deviceid):
   form = EmptyForm()
   return render_template('device.html', device=device, validations=validations)
 
+
+# class DeviceValidationModel(db.Model):
+#   id: so.Mapped[int] = so.mapped_column(primary_key=True)
+#   device_id: so.Mapped[int] = so.mapped_column(ForeignKey(Device.id), index=True)
+#   validation_model: so.Mapped[str] = so.mapped_column(sa.String())
+#   validation_model_data: so.Mapped[str] = so.mapped_column(sa.Text(), nullable=True)
+
+@bp.route('/device/<int:deviceid>/validation_models', methods=['GET', 'POST'])
+@login_required
+def edit_device_models(deviceid):
+  # page = request.args.get('page', 1, type=int)
+  # form = NewTestCaseForm()
+  # form.plugin.choices = [ plugin_name for plugin_name in plugins ]
+  # query = sa.select(Role).where(Role.active == True).order_by(Role.name.asc())
+  # all_roles = db.session.scalars(query).all()
+  # form.approver_role.choices = [ (role.id, role.name) for role in all_roles ]
+  # if form.validate_on_submit():
+  #   case = TestCase(name=form.name.data, version=form.version.data,
+  #     function=form.plugin.data, data=form.data.data,
+  #     approver_role_id=form.approver_role.data, archived=False)
+  #   db.session.add(case)
+  #   db.session.commit()
+  #   return redirect(url_for('admin.cases', page=page))
+  # elif request.method == 'POST':
+  #   flash(f'Error: {form.errors}')
+  device = db.first_or_404(sa.select(Device).where(Device.id == deviceid))
+  form = NewDeviceValidationModelForm()
+  form.model.choices = [ model_name for model_name in validation_models ]
+  if form.validate_on_submit():
+    model = DeviceValidationModel(device_id=device.id, 
+      validation_model=form.model.data
+    )
+    db.session.add(model)
+    db.session.commit()
+    return redirect(url_for('main.edit_device_models', deviceid=deviceid))
+  # query = sa.select(TestCase).order_by(TestCase.name.desc())
+  # cases = db.paginate(query, page=page,
+  #   per_page=current_user.page_size,
+  #   error_out=False)
+  # next_url = url_for('admin.cases', page=cases.next_num) \
+  #   if cases.has_next else None
+  # prev_url = url_for('admin.cases', page=cases.prev_num) \
+  #   if cases.has_prev else None
+  # return render_template('admin/cases.html', title='Test Case Administration',
+  #   cases=cases, next_url=next_url, prev_url=prev_url, form=form)
+  return render_template('device_models.html', title=f'Device Validation Models',
+    device=device, form=form)
+
+
+@bp.route('/device/<int:deviceid>/validation_models/<modelid>/delete', methods=['POST'])
+@login_required
+def device_delete_model(deviceid, modelid):
+  DeviceValidationModel.query.filter(id=modelid, device_id=deviceid).delete()
+
+@bp.route('/device/<int:deviceid>/validation_models/<modelid>/configure')
+@login_required
+def device_configure_model(deviceid, modelid):
+  model = db.first_or_404(sa.select(
+    DeviceValidationModel).where(
+      DeviceValidationModel.id == modelid
+    ).where(
+      DeviceValidationModel.device_id == deviceid
+    )
+  )
+  return render_template('config_model.html', title=f'Configure Device Validation Model',
+    model=model
+  )

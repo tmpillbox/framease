@@ -97,10 +97,12 @@ def create_app(config_class=Config):
 
 from app import models
 
-import app.plugins
+import app.plugins as _plugins
+import app.validation_models as _validation_models
 
 BASE_DIR = Path(__file__).parent
 PLUGIN_PATH = BASE_DIR / 'plugins'
+VALIDATION_MODEL_PATH = BASE_DIR / 'validation_models'
 
 def iter_namespace(ns_pkg):
   # Specifying the second argument (prefix) to iter_modules makes the
@@ -112,6 +114,12 @@ def iter_namespace(ns_pkg):
 plugins = {
   name: importlib.import_module(name)
   for finder, name, ispkg
-  in iter_namespace(plugins)
+  in iter_namespace(_plugins)
 }
 
+
+validation_models = {
+  name: importlib.import_module(name)
+  for finger, name, ispkg
+  in iter_namespace(_validation_models)
+}

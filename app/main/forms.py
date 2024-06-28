@@ -38,3 +38,8 @@ class TestCaseForm(FlaskForm):
   sequence_number = IntegerField('Sequence', validators=[DataRequired()])
   test_function = SelectField('Test Function', validators=[DataRequired()])
 
+
+class NewDeviceValidationModelForm(FlaskForm):
+  model = SelectField('Validation Model', validators=[DataRequired()])
+  submitted = SubmitField('Add')
+  
