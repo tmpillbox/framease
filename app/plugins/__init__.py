@@ -1,2 +1,0 @@
-
-plugins_loaded = True

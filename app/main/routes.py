@@ -139,14 +139,17 @@ def edit_device_models(deviceid):
   #   if cases.has_prev else None
   # return render_template('admin/cases.html', title='Test Case Administration',
   #   cases=cases, next_url=next_url, prev_url=prev_url, form=form)
+  empty_form = EmptyForm()
   return render_template('device_models.html', title=f'Device Validation Models',
-    device=device, form=form)
+    device=device, form=form, empty_form=empty_form)
 
 
 @bp.route('/device/<int:deviceid>/validation_models/<modelid>/delete', methods=['POST'])
 @login_required
 def device_delete_model(deviceid, modelid):
-  DeviceValidationModel.query.filter(id=modelid, device_id=deviceid).delete()
+  DeviceValidationModel.query.filter(DeviceValidationModel.id == modelid, DeviceValidationModel.device_id == deviceid).delete()
+  db.session.commit()
+  return redirect(url_for('main.edit_device_models', deviceid=deviceid))
 
 @bp.route('/device/<int:deviceid>/validation_models/<modelid>/configure')
 @login_required

@@ -1,4 +1,4 @@
-{% extends "admin/base.html" %}
+{% extends "base.html" %}
 {% import "bootstrap_wtf.html" as wtf %}
 
 {% block content %}
@@ -34,8 +34,13 @@
         </td>
         <td>
           <div class="btn-group mr-2" role="group" aria-label="Actions">
-            <a class="btn btn-primary" href="{{ url_for('main.device_configure_model', deviceid=device.id, modelid=model.id) }}">Configure</a>
-            <a class="btn btn-primary" href="{{ url_for('main.device_delete_model', deviceid=device.id, modelid=model.id) }}">Delete</a>
+              <a class="btn btn-primary" href="{{ url_for('main.device_configure_model', deviceid=device.id, modelid=model.id) }}">Configure</a>
+          </div>
+          <div class="btn-group mr-2" role="group" aria-label="Actions">
+              <form action="{{ url_for('main.device_delete_model', deviceid=device.id, modelid=model.id) }}" method="POST">
+                {{ empty_form.hidden_tag() }}
+                {{ empty_form.submit(value='Delete', class_='btn btn-primary') }}
+              </form>
           </div>
         </td>
       </tr>
