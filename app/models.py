@@ -217,6 +217,7 @@ class Device(db.Model):
 class DeviceValidationModel(db.Model):
   id: so.Mapped[int] = so.mapped_column(primary_key=True)
   device_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey(Device.id), index=True)
+  sequence: so.Mapped[int] = so.mapped_column(sa.Integer(), index=True, default=0)
   validation_model: so.Mapped[str] = so.mapped_column(sa.String())
   validation_model_data: so.Mapped[str] = so.mapped_column(sa.Text(), nullable=True)
 
