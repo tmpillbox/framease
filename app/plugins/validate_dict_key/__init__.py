@@ -1,1 +1,1 @@
-from .plugin import plugin_name, check, requirements, usage
+from .plugin import plugin_name, check, parameters, requires, usage

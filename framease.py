@@ -2,7 +2,7 @@ import sqlalchemy as sa
 import sqlalchemy.orm as so
 
 from app import create_app, db, plugins
-from app.models import User, Notification, Task, Device, DeviceValidation, TestSuite, TestCase, Comment
+from app.models import User, Notification, Task, Device, DeviceValidation, TestSuite, TestCase, Comment, DeviceValidationModel
 
 app = create_app()
 
@@ -21,6 +21,7 @@ def make_shell_context():
     'Task': Task,
     'Device': Device,
     'DeviceValidation': DeviceValidation,
+    'DeviceValidationModel': DeviceValidationModel,
     'TestSuite': TestSuite,
     'TestCase': TestCase,
     'Comment': Comment,

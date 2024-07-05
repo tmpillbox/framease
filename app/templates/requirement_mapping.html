@@ -1,0 +1,36 @@
+{% import "bootstrap_wtf.html" as wtf %}
+
+{% macro requirement(upload_form, select_form, model, type, name) %}
+  {%- if type == 'file' %}
+    <form
+      novalidate
+      action="{{ url_for('main.device_configure_model_upload', deviceid=model.device.id, modelid=model.id, req_name=name) }}"
+      method="POST"
+      enctype=multipart/form-data
+      id="upload_{{ name }}">
+      {{ upload_form.hidden_tag() }}
+      <input type="hidden" name="requirement" value="{{ name }}">
+      <input type="file" class="form-file mb-3" name="file">
+      <input type="submit" class="form-submit mb-3" value="Upload">
+    </form>
+    <form
+      novalidate
+      action="{{ url_for('main.device_configure_model_select', deviceid=model.device.id, modelid=model.id, req_name=name) }}"
+      method="POST"
+      id="file_{{ name }}">
+      {{ select_form.hidden_tag() }}
+      <input type="hidden" name="requirement" value="{{ name }}" data="{{ name }}">
+      <!-- <input type="select" class="form-select mb-3" choices="{{ model.device.files }}"> !-->
+      <label for="select">Select File</label>
+      <select name="select">
+        {% for file in model.device.files %}
+        <option value="{{ file }}">{{ file }}</option>
+        {% endfor %}
+      </select>
+      <input type="submit" class="form-submit mb-3" value="Select">      
+    </form>
+  {%- elif type == 'json' %}
+  {%- elif type == 'text' %}
+  {%- else %}
+  {%- endif %}
+{% endmacro %}

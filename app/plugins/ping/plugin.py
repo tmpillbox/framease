@@ -13,13 +13,16 @@ successful if:
 
 '''
 
-def requirements():
+def parameters():
+  return []
+
+def requires():
   return [
-    'ip_address'
+    ('ip', 'ip_address')
   ]
 
 
-def check(job, data):
+def check(data):
   if 'ip_address' not in data:
     raise KeyError
   status, result = sp.getstatusoutput(f"ping -c1 -w2 {data['ip_address']}")

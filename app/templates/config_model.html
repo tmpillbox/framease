@@ -1,6 +1,24 @@
-{% extends "admin/base.html" %}
+{% extends "base.html" %}
 {% import "bootstrap_wtf.html" as wtf %}
+{% import "requirement_mapping.html" as reqmap %}
 
 {% block content %}
-  {{ model }}
+    <table id="data" class="table table-striped table-hover align-middle">
+    <thead>
+      <tr>
+        <th>Requires</th>
+        <th>Value</th>
+        <th>Configuration</th>
+      </tr>
+    </thead>
+    {% for req_type, req_name in model.requirements %}
+      <tr>
+        <td>{{ req_type }}</td>
+        <td>{{ model.show_requirement(req_name) }}
+        <td>
+          {{ reqmap.requirement(upload_form, select_form, model, req_type, req_name) }}
+        </td>
+      </tr>
+    {% endfor %}
+  </table>
 {% endblock %}

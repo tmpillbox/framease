@@ -3,20 +3,24 @@
 
 {% block content %}
   <h1>{{ title }}</h1>
-  {% if form %}
-  <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#collapseForm" aria-expanded="false" aria-controls="collapseForm">
-    Add Device Validation Model
-  </button>
+  <div class="btn-group mr-2" role="group" aria-label="Actions">
+    <a class="btn btn-primary" href="{{ url_for('main.device', deviceid=device.id) }}">Return</a>
+    {% if form %}
+    <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#collapseForm" aria-expanded="false" aria-controls="collapseForm">
+      Add Device Validation Model
+    </button>
+    {% endif %}
+  </div>
   <div class="collapse" id="collapseForm">
     <div class="card card-body">
     {{ wtf.quick_form(form) }}
     </div>
   </div>
   <hr>
-  {% endif %}
   <table id="data" class="table table-striped table-hover align-middle">
     <thead>
       <tr>
+        <th>Sequence</th>
         <th>Model</th>
         <th>Status</th>
         <th>Actions</th>
@@ -24,6 +28,7 @@
     </thead>
     {% for model in device.validation_models %}
       <tr>
+        <td>{{ model.sequence }}</td>
         <td>{{ model.validation_model }}</td>
         <td>
           {% if model.is_configured %}
@@ -42,6 +47,12 @@
                 {{ empty_form.submit(value='Delete', class_='btn btn-primary') }}
               </form>
           </div>
+        </td>
+      </tr>
+      <tr>
+        <th>DATA:</th>
+        <td colspan="3">
+          {{ model.validation_model_data }}
         </td>
       </tr>
     {% endfor %}

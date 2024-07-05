@@ -6,21 +6,21 @@ model_name = 'fortigate_offline'
 
 usage = '''model: fortigate_offline
 
-requires: "file"
+requires: <file> "filename"
 
-provides: "fgt_cli_configuration"
+provides: <json> "fgt_cli_configuration"
 
 
 '''
 
 def requires():
   return [
-    'file'
+    ('file', 'filename')
   ]
 
 def provides():
   return [
-    'fgt_cli_configuration',
+    ('json', 'fgt_cli_configuration'),
   ]
 
 cleanip_skus = [
@@ -78,14 +78,15 @@ def get_context(contexts, hier):
   return contexts
 
 def set_value(ctx, key, val):
-  ctx[key] = value
+  ctx[key] = val
 
 
-def process(job, data):
+def _process(data):
+  data = json.loads(data)
   fgt_cli_configuration = dict()
   admin_accounts = dict()
   interfaces = dict()
-  config_lines = dict()
+  config_lines = list()
   config_hier = dict()
 
   fgt_cli_configuration['admin_accounts'] = admin_accounts
@@ -93,7 +94,7 @@ def process(job, data):
   fgt_cli_configuration['config'] = config_lines
   fgt_cli_configuration['hierarchy'] = config_hier
 
-  file = [ line for line in data['file'] ]
+  file = [ line.strip('\n') for line in data['filedata:filename'] ]
 
 
   quoted_newline = ''
@@ -115,8 +116,11 @@ def process(job, data):
   for line in config_lines:
     if not line:
       continue
+    if not line.strip():
+      continue
     if line.startswith('#config-version'):
       fgt_cli_configuration['fw_version'] = line.split('-')[2]
+      continue
     tokens = shlex.split(line, posix=False)
     act, params = tokens[0], tokens[1:]
     if act == 'end':
@@ -134,9 +138,7 @@ def process(job, data):
     elif act == 'set':
       config_key = '|'.join(hier) + f'|{act} {params[0]}'
       config_value = ' '.join(params[1:])
-      config_lines[config_key] = config_value
       set_value(context, params[0], config_value)
-      fgt_cli_configuration['config'][config_key] = config_value
 
   for edit_intf, ctx in fgt_cli_configuration['hierarchy']['config system interface'].items():
     interface = shlex.split(edit_intf)[-1]
@@ -146,5 +148,12 @@ def process(job, data):
     username = shlex.split(edit_admin)[-1]
     fgt_cli_configuration['admin_accounts'][username] = json.dumps(ctx)
 
-  return json.dumps(fgt_cli_configuration)
+  return [
+    ('fgt_cli_configuration', fgt_cli_configuration)
+  ]
 
+def process(data):
+  try:
+    return _process(data)
+  except:
+    return [('fgt_cli_configuration', dict())]

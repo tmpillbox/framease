@@ -4,7 +4,7 @@
 {% block content %}
     <table class="table table-hover">
         <tr>
-            <td><h1>{{ device.devicename }} Details</h1></td>
+            <td colspan="3"><h1>{{ device.devicename }} Details</h1></td>
         </tr>
         <tr>
             <td>Hostname: {{ device.hostname }}</td>
@@ -12,9 +12,26 @@
             <td>HTTPS: <a href="https://{{device.hostname}}:{{device.https_port}}">{{ device.https_port }}</a></td>
         </tr>
         <tr>
-          <div class="btn-group" role="group" aria-label="Actions">
-            <a class="btn btn-primary" href="{{ url_for('main.edit_device_models', deviceid=device.id) }}">Edit Validation Models</a>
-          </div>            
+            <td colspan="3">
+                <div class="btn-group" role="group" aria-label="Actions">
+                    <a class="btn btn-primary" href="{{ url_for('main.edit_device_models', deviceid=device.id) }}">Edit Validation Models</a>
+                    {% if form %}
+                        <button
+                            class="btn btn-primary" type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#collapseForm"
+                            aria-expanded="false"
+                            aria-controls="collapseForm">
+                            Add Device Validation (QA)
+                        </button>
+                    {% endif %}
+                </div>
+                <div class="collapse" id="collapseForm">
+                    <div class="card card-body">
+                    {{ wtf.quick_form(form) }}
+                    </div>
+                </div>
+            </td>
         </tr>
     </table>
     {% for validation in validations %}

@@ -1,7 +1,7 @@
     <table class="table table-hover">
         <tr>
             <td width="70px">
-                <a href="{{ url_for('main.validaiton', validation=validation.id) }}">
+                <a href="{{ url_for('main.device_validation', deviceid=device.id, validationid=validation.id) }}">
                     {{ validation.name }}
                 </a>
             </td>

@@ -12,16 +12,19 @@ successful if:
 
 '''
 
-
-def requirements():
+def parameters():
   return [
-    'key',
-    'value',
-    'data'
+    ('str', 'key'),
+    ('obj', 'value')
+  ]
+
+def requires():
+  return [
+    ('json', 'dict'),
   ]
 
 
-def check(job, data):
+def check(data):
   if 'key' not in data or 'value' not in data or 'data' not in data:
     raise KeyError
   key, value = data['key'], data['value']

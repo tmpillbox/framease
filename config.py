@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -26,4 +27,6 @@ class Config:
 
   DEFAULT_SSH_PORT = 22
   DEFAULT_HTTPS_PORT = 443
+  
+  UPLOAD_PATH = Path(os.environ.get('UPLOAD_PATH', 'uploads'))
   

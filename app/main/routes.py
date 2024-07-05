@@ -4,9 +4,14 @@ from datetime import datetime, timezone
 from flask import render_template, flash, redirect, url_for, request, g, current_app
 from flask_login import current_user, login_required
 from sqlalchemy.sql.expression import false
+from werkzeug.utils import secure_filename
+
+import json
 
 from app import db, plugins, validation_models
-from app.main.forms import DeviceForm, EmptyForm, TestCaseForm, TestSuiteForm, EditProfileForm, NewDeviceValidationModelForm
+from app.main.forms import DeviceForm, EmptyForm, TestCaseForm, TestSuiteForm
+from app.main.forms import EditProfileForm, NewDeviceValidationForm, NewDeviceValidationModelForm
+from app.main.forms import ValidationModelConfigurationFileUploadForm, ValidationModelConfigurationFileSelectForm
 from app.models import User, Device, TestSuite, TestCase, DeviceValidation, Notification, DeviceValidationModel
 from app.main import bp
 
@@ -91,8 +96,19 @@ def device(deviceid):
   device = db.first_or_404(sa.select(Device).where(Device.id == deviceid))
   query = device.validations.select().order_by(DeviceValidation.timestamp.desc())
   validations = db.session.scalars(query).all()
-  form = EmptyForm()
-  return render_template('device.html', device=device, validations=validations)
+  form = NewDeviceValidationForm()
+  form.suite.choices = [ (suite.id, str(suite)) for suite in device.get_compatible_suites() ]
+  if form.validate_on_submit():
+    suite = db.first_or_404(sa.select(TestSuite).where(TestSuite.id == form.suite.data))
+    validation = DeviceValidation(device_id=device.id, suite_id=suite.id,
+      name=f'{device}: {suite}', data=json.dumps(dict()), archived=False,
+      submitted=False, approved=False, final=False)
+    db.session.add(validation)
+    db.session.commit()
+    return redirect(url_for('main.device', deviceid=deviceid))
+  elif request.method == 'POST':
+    flash(form)
+  return render_template('device.html', device=device, validations=validations, form=form)
 
 
 # class DeviceValidationModel(db.Model):
@@ -122,10 +138,12 @@ def edit_device_models(deviceid):
   device = db.first_or_404(sa.select(Device).where(Device.id == deviceid))
   form = NewDeviceValidationModelForm()
   form.model.choices = [ model_name for model_name in validation_models ]
+  form.sequence.data = DeviceValidationModel.next_sequence(deviceid=deviceid)
   if form.validate_on_submit():
-    model = DeviceValidationModel(device_id=device.id, 
-      validation_model=form.model.data
+    model = DeviceValidationModel(device_id=device.id,
+      sequence=form.sequence.data, validation_model=form.model.data
     )
+    model.initialize_data()
     db.session.add(model)
     db.session.commit()
     return redirect(url_for('main.edit_device_models', deviceid=deviceid))
@@ -147,13 +165,18 @@ def edit_device_models(deviceid):
 @bp.route('/device/<int:deviceid>/validation_models/<modelid>/delete', methods=['POST'])
 @login_required
 def device_delete_model(deviceid, modelid):
-  DeviceValidationModel.query.filter(DeviceValidationModel.id == modelid, DeviceValidationModel.device_id == deviceid).delete()
-  db.session.commit()
+  form=EmptyForm()
+  if form.validate_on_submit():
+    DeviceValidationModel.query.filter(DeviceValidationModel.id == modelid, DeviceValidationModel.device_id == deviceid).delete()
+    db.session.commit()
   return redirect(url_for('main.edit_device_models', deviceid=deviceid))
 
-@bp.route('/device/<int:deviceid>/validation_models/<modelid>/configure')
+@bp.route('/device/<int:deviceid>/validation_models/<modelid>/configure', methods=['GET', 'POST'])
 @login_required
 def device_configure_model(deviceid, modelid):
+  empty_form = EmptyForm()
+  upload_form = ValidationModelConfigurationFileUploadForm()
+  select_form = ValidationModelConfigurationFileSelectForm()
   model = db.first_or_404(sa.select(
     DeviceValidationModel).where(
       DeviceValidationModel.id == modelid
@@ -162,5 +185,110 @@ def device_configure_model(deviceid, modelid):
     )
   )
   return render_template('config_model.html', title=f'Configure Device Validation Model',
-    model=model
+    model=model, empty_form=empty_form, upload_form=upload_form, select_form=select_form
   )
+
+@bp.route('/device/<int:deviceid>/validation_models/<modelid>/configure/upload/<req_name>', methods=['POST'])
+@login_required
+def device_configure_model_upload(deviceid, modelid, req_name):
+  form = ValidationModelConfigurationFileUploadForm()
+  if form.validate_on_submit():
+    if form.file.data:
+      filename = secure_filename(form.file.data.filename)
+      device = db.first_or_404(sa.select(Device).where(Device.id == deviceid))
+      model = db.first_or_404(sa.select(
+        DeviceValidationModel).where(
+          DeviceValidationModel.id == modelid
+        ).where(
+          DeviceValidationModel.device_id == deviceid
+        )
+      )
+      fname = device.files_path / filename
+      form.file.data.save(fname)
+      if form.name:
+        model.configure_requirement(req_name, str(fname))
+        
+  return redirect(url_for('main.device_configure_model', deviceid=deviceid, modelid=modelid))
+
+@bp.route('/device/<int:deviceid>/validation_models/<modelid>/configure/select/<req_name>', methods=['POST'])
+@login_required
+def device_configure_model_select(deviceid, modelid, req_name):
+  form = ValidationModelConfigurationFileSelectForm()
+  model = db.first_or_404(sa.select(
+    DeviceValidationModel).where(
+      DeviceValidationModel.id == modelid
+    ).where(
+      DeviceValidationModel.device_id == deviceid
+    )
+  )
+  device = model.device
+  form.select.choices = device.files
+  if form.validate_on_submit():
+    model.configure_requirement(req_name, form.select.data)
+  return redirect(url_for('main.edit_device_models', deviceid=deviceid))
+
+
+@bp.route('/device/<int:deviceid>/validation/<validationid>', methods=['GET', 'POST'])
+@login_required
+def device_validation(deviceid, validationid):
+  validation = db.first_or_404(sa.select(DeviceValidation).where(DeviceValidation.id == validationid))
+  device = validation.device
+  form = EmptyForm()
+  return render_template('validation.html', title=f'Validation: {validation.name}',
+    validation=validation, device=device, form=form)
+
+@bp.route('/device/<int:deviceid>/validation/<validationid>/run', methods=['POST'])
+@login_required
+def validation_run(deviceid, validationid):
+  validation = db.first_or_404(sa.select(DeviceValidation).where(DeviceValidation.id == validationid))
+  device = validation.device
+  if validation.running:
+    flash('Validation is currently running')
+  else:
+    validation.run(current_user)
+    db.session.commit()
+  return redirect(url_for('main.device_validation', deviceid=deviceid, validationid=validationid))
+
+@bp.route('/device/<int:deviceid>/validation/<validationid>/comment/<sequence>', methods=['GET', 'POST'])
+@login_required
+def validation_case_comment(deviceid, validationid, sequence):
+  validation = db.first_or_404(sa.select(DeviceValidation).where(DeviceValidation.id == validationid))
+  device = validation.device
+  form = NewCommentForm()
+  if form.validate_on_submit():
+    comment = Comment()
+    comment.body = form.body.data
+    comment.user_id = current_user.id
+    comment.validation_id = validation.id
+    comment.sequence = sequence
+    comment.deleted = False
+    comment.is_override = False
+    comment.force_failure = False
+    db.session.add(comment)
+    db.session.commit()
+    return redirect(url_for('main.device_validation', deviceid=deviceid, validationid=validationid))
+  return render_template('case_comment.html', title=f'Validation Comment',
+    deviceid=deviceid, validationid=validationid, sequence=sequence,
+    form=form)
+
+@bp.route('/device/<int:deviceid>/validation/<validationid>/comment/<sequence>/override', methods=['GET', 'POST'])
+@login_required
+def validation_case_override(deviceid, validationid, sequence):
+  validation = db.first_or_404(sa.select(DeviceValidation).where(DeviceValidation.id == validationid))
+  device = validation.device
+  form = NewCommentForm()
+  if form.validate_on_submit():
+    comment = Comment()
+    comment.body = form.body.data
+    comment.user_id = current_user.id
+    comment.validation_id = validation.id
+    comment.sequence = sequence
+    comment.deleted = False
+    comment.is_override = True
+    comment.force_failure = False
+    db.session.add(comment)
+    db.session.commit()
+    return redirect(url_for('main.device_validation', deviceid=deviceid, validationid=validationid))
+  return render_template('case_comment.html', title=f'Validation Override',
+    deviceid=deviceid, validationid=validationid, sequence=sequence,
+    form=form)

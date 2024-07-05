@@ -315,8 +315,9 @@ def cases():
   form.approver_role.choices = [ (role.id, role.name) for role in all_roles ]
   if form.validate_on_submit():
     case = TestCase(name=form.name.data, version=form.version.data,
-      function=form.plugin.data, data=form.data.data,
-      approver_role_id=form.approver_role.data, archived=False)
+      description=form.description.data, function=form.plugin.data,
+      data=form.data.data, approver_role_id=form.approver_role.data,
+      archived=False)
     db.session.add(case)
     db.session.commit()
     return redirect(url_for('admin.cases', page=page))
@@ -346,6 +347,7 @@ def case(caseid):
   form.approver_role.choices = [ (role.id, role.name) for role in all_roles ]
   if form.validate_on_submit():
     case.data = form.data.data
+    case.description = form.description.data
     case.approver_role_id = form.approver_role.data
     db.session.commit()
     return redirect(url_for('admin.cases', page=request.args.get('page', 1, type=int)))
@@ -355,6 +357,7 @@ def case(caseid):
   form.process()
   form.name.data = case.name
   form.version.data = case.version
+  form.description.data = case.description
   form.plugin.data = case.function
   form.data.data = case.data
   return render_template('admin/test_case.html', title=f'Test Case: {case.name} ({case.version})',
@@ -367,9 +370,9 @@ def case(caseid):
 def archive_case(caseid):
   case = db.first_or_404(sa.select(TestCase).where(TestCase.id == caseid))
   suites_using = [
-    ( suite.id, f'{suite.name} ({suite.version})' )
-    for suite in case.suites
-    if suite.archived is False
+    ( suitecase.suite.id, f'{suitecase.suite.name} ({suitecase.suite.version})' )
+    for suitecase in case.suites
+    if suitecase.suite.archived is False
   ]
   if suites_using:
     flash('Test Case is in use. Please archive or unlink:')
