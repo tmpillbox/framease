@@ -435,19 +435,28 @@ class DeviceValidation(db.Model):
 
   def sequence_status(self, sequence):
     data = self.get_data()
+    if 'results' not in data:
+      return {}
+    data = data['results']
+    sequence = str(sequence)
     if sequence in data:
-      return data[sequence]
-    if str(sequence) in data:
-      return data[str(sequence)]
+      status = data[sequence]
+      if isinstance(status, dict):
+        return status
     return {}
 
   def row_status(self, sequence):
     data = self.get_data()
-    if sequence in data:
-      statuses = data[sequence]
-    elif str(sequence) in data:
-      statuses = data[str(sequence)]
+    if 'results' not in data:
+      return 'no data'
+    results = data['results']
+    if sequence in results:
+      statuses = results[sequence]
+    elif str(sequence) in results:
+      statuses = results[str(sequence)]
     else:
+      return 'no data'
+    if not isinstance(statuses, dict):
       return 'no data'
     statuses = [ v for v in statuses.values() ]
     if all(statuses):
@@ -456,7 +465,6 @@ class DeviceValidation(db.Model):
       return 'failure'
     else:
       return 'incomplete'
-
 
   @property
   def has_secrets(self):
@@ -488,7 +496,7 @@ class TestCase(db.Model):
   approver_role: so.Mapped[Role] = so.relationship(Role, primaryjoin='TestCase.approver_role_id == Role.id')
 
   def __repr__(self):
-    return f'<TestCase({self.id}, {self.fucnction}, {self.data})>'
+    return f'<TestCase({self.id}, {self.function}, {self.data})>'
 
   @property
   def requirements(self):
@@ -533,7 +541,6 @@ class TestCase(db.Model):
     if data_updates:
       data['parameters'].update(data_updates)
     if self.function in plugins:
-      #for req_name, req_data in validation_models[self.validation_model].process(data):
       return plugins[self.function].check(json.dumps(data))
 
 class Comment(db.Model):

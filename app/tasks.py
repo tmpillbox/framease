@@ -32,15 +32,24 @@ def run_validation(user_id, device_validation_id):
     _set_task_progress(100)
     return
   validation_data = json.loads(validation.data)
+  if 'history' not in validation_data:
+    validation_data['history'] = list()
+  if 'results' in validation_data:
+    validation_data['history'].append(validation_data['results'])
   results = dict()
+  validation_data['results'] = results
   try:
     device = validation.device
     device_model_data = device.get_model_data()
     for suitecase in validation.suite.cases:
+      seq = str(suitecase.sequence)
       case = suitecase.case
       result = case.run(json.dumps(device_model_data))
-      validation_data[suitecase.sequence] = result
-    print(f'# DEBUG: results: {results}')
+      if seq not in results:
+        results[seq] = result
+      else:
+        results[seq].update(result)
+      #print(f'# DEBUG: seq <{seq}> result: {result} results: {results}')
     validation.data = json.dumps(validation_data)
   except Exception:
     _set_task_progress(100)
