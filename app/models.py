@@ -439,7 +439,7 @@ class DeviceValidation(db.Model):
       return data[sequence]
     if str(sequence) in data:
       return data[str(sequence)]
-    return 'No Data'
+    return {}
 
   def row_status(self, sequence):
     data = self.get_data()
