@@ -9,10 +9,10 @@ from werkzeug.utils import secure_filename
 import json
 
 from app import db, plugins, validation_models
-from app.main.forms import DeviceForm, EmptyForm, TestCaseForm, TestSuiteForm
+from app.main.forms import DeviceForm, EmptyForm, TestCaseForm, TestSuiteForm, NewCommentForm
 from app.main.forms import EditProfileForm, NewDeviceValidationForm, NewDeviceValidationModelForm
 from app.main.forms import ValidationModelConfigurationFileUploadForm, ValidationModelConfigurationFileSelectForm
-from app.models import User, Device, TestSuite, TestCase, DeviceValidation, Notification, DeviceValidationModel
+from app.models import User, Device, TestSuite, TestCase, DeviceValidation, Notification, DeviceValidationModel, Comment
 from app.main import bp
 
 
@@ -234,8 +234,9 @@ def device_validation(deviceid, validationid):
   validation = db.first_or_404(sa.select(DeviceValidation).where(DeviceValidation.id == validationid))
   device = validation.device
   form = EmptyForm()
+  comment_form = NewCommentForm()
   return render_template('validation.html', title=f'Validation: {validation.name}',
-    validation=validation, device=device, form=form)
+    validation=validation, device=device, form=form, comment_form=comment_form)
 
 @bp.route('/device/<int:deviceid>/validation/<validationid>/run', methods=['POST'])
 @login_required
@@ -292,3 +293,4 @@ def validation_case_override(deviceid, validationid, sequence):
   return render_template('case_comment.html', title=f'Validation Override',
     deviceid=deviceid, validationid=validationid, sequence=sequence,
     form=form)
+

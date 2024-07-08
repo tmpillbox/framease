@@ -1,8 +1,13 @@
-{% macro form_field(field, autofocus) %}
+{% macro form_field(field, autofocus, id="") %}
   {%- if field.type == 'BooleanField' %}
   <div class="form-check mb-3">
-    {{ field(class='form-check-input') }}
-    {{ field.label(class='form-check-label') }}
+    {%- if id %}
+      {{ field(class='form-check-input', id=field.id + id)}}
+      {{ field.label(class='form-check-label', for=field.id + id) }}
+    {%- else %}
+      {{ field(class='form-check-input') }}
+      {{ field.label(class='form-check-label') }}
+    {%- endif %}
   </div>
   {%- elif field.type == 'RadioField' %}
     {{ field.label(class='form-label') }}
@@ -62,7 +67,7 @@
   {% set ns = namespace(first_field=true) %}
   {%- for field in form %}
     {% if field.widget.input_type != 'hidden' -%}
-      {{ form_field(field, ns.first_field) }}
+      {{ form_field(field, ns.first_field, id=id) }}
       {% set ns.first_field = false %}
     {%- endif %}
   {%- endfor %}  

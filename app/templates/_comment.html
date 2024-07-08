@@ -1,0 +1,24 @@
+  <table class="table table-hover table-striped-columns{% if comment.deleted %} deleted-comment collapse{% endif %}">
+    <tr>
+      <td width="200px">
+        <a href="{{ url_for('main.user', username=comment.author.username) }}">
+          {{ comment.author.display_name }}
+        </a><br />{{ moment(comment.timestamp).format("LLL") }}
+      </td>
+      <td>
+        <span id="comment{{ comment.id }}">{{ comment.body }}</span>
+      </td>
+    </tr>
+    <tr>
+      <td></td>
+      <td colspan="2">
+        {% if comment.deleted %}
+          <span class="badge rounded-pill text-bg-secondary">Comment Deleted</span>
+        {% elif comment.force_failure %}
+          <span class="badge rounded-pill text-bg-danger">❌ Manual Reject</span>
+        {% elif comment.is_override %}
+          <span class="badge rounded-pill text-bg-success">✔ Manual Override</span>
+        {% endif %}
+      </td>
+    </tr>
+  </table>

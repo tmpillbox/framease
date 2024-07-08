@@ -10,10 +10,11 @@ import redis
 import rq
 import pkgutil
 import importlib
+import traceback
 
 from datetime import datetime, timezone, timedelta
 from hashlib import md5
-from flask import current_app, url_for
+from flask import current_app, url_for, jsonify
 from flask_login import UserMixin, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.sql import false
@@ -387,6 +388,24 @@ class TestSuite(db.Model):
   def __str__(self):
     return f'{self.name} ({self.version})'
 
+  @property
+  def is_locked(self):
+    return False
+    return self.final or bool(list(db.session.scalars(self.validations.select())))
+  
+  def to_dict(self):
+    return {
+      'id': self.id,
+      'name': self.name,
+      'version': self.version,
+      'archived': self.archived,
+      'final': self.final,
+      'cases': [
+        { 'id': suitecase.id, 'sequence': suitecase.sequence, 'case': suitecase.case.to_dict() }
+        for suitecase in self.cases
+      ]
+    }
+
   def add_case(self, caseid, sequence):
     self.cases.append(SuiteCase(self.id, caseid, sequence))
 
@@ -400,6 +419,80 @@ class TestSuite(db.Model):
 
   def get_cases_in_order(self):
     return sorted(self.cases, key=lambda c: c.sequence)
+
+  @classmethod
+  def get_by_name_version(cls, name, version):
+    res = TestSuite.query.where(TestSuite.name == name and TestSuite.version == version).first()
+    if res.name == name and res.version == version:
+      return res
+    return None
+
+  def _import_delete(self, meta_delete):
+    del_targets = list()
+    if 'case' in meta_delete:
+      for suitecase in self.cases:
+        if suitecase.case_id == meta_delete['case']:
+          del_targets.append(suitecase)
+    if 'sequence' in meta_delete:
+      for suitecase in self.cases:
+        if suitecase.sequence == meta_delete['sequence']:
+          del_targets.append(suitecase)
+    if 'suitecase' in meta_delete:
+      for suitecase in self.cases:
+        if suitecase.id == meta_delete['suitecase']:
+          del_targets.append(suitecase)
+    for target in del_targets:
+      db.session.delete(target)
+
+  def import_update(self, update_data):
+    mode = ''
+    if 'import_meta' in update_data:
+      for meta in update_data['import_meta']:
+        if 'mode' in meta:
+          mode = meta['mode']
+        elif 'delete' in meta:
+          for meta_delete in meta['delete']:
+            self._import_delete(meta_delete)
+    if 'id' in update_data and update_data['id'] != self.id:
+      flash(f'Invalid import data: "id": {update_data["id"]}')
+      raise ValidationError
+    if 'name' in update_data:
+      self.name = update_data['name']
+    if 'version' in update_data:
+      self.version = update_data['version']
+    if 'archived' in update_data:
+      self.archived = update_data['archived']
+    if 'final' in update_data:
+      self.final = update_data['final']
+    if 'cases' in update_data:
+      for update_suitecase in update_data['cases']:
+        print('Update SuiteCase: ' + repr(update_suitecase))
+        testcase = None
+        if 'id' in update_suitecase['case']:
+          testcase = TestCase.get_by_id(update_suitecase['case']['id'])
+        if 'name' in update_suitecase['case'] and 'version' in update_suitecase['case']:
+          testcase = TestCase.get_by_name_version(update_suitecase['case']['name'], update_suitecase['case']['version'])
+        if testcase:
+          print('Checkpoint')
+          testcase.import_update(update_suitecase['case'])
+          print('Checkpoint 2')
+        else:
+          try:
+            testcase = TestCase(name=update_suitecase['case']['name'], version=update_suitecase['case']['version'])
+            db.session.add(testcase)
+            testcase.import_update(update_suitecase['case'])
+          except:
+            flash(f'Invalid import data: SuiteCase: {update_suitecase}')
+        if 'id' in update_suitecase:
+          suitecase = SuiteCase.get_by_id(update_suitecase['id'])
+          if suitecase:
+            suitecase.import_update(update_suitecase)
+          else:
+            suitecase = SuiteCase(id=update_suitecase['id'], sequence=update_suitecase['sequence'], suite_id=self.id, case_id=testcase.id)
+            db.session.add(suitecase)
+        elif 'sequence' in update_suitecase:
+          suitecase = SuiteCase(sequence=update_suitecase['sequence'], suite_id=self.id, case_id=testcase.id)
+          db.session.add(suitecase)
 
 
 class DeviceValidation(db.Model):
@@ -433,19 +526,47 @@ class DeviceValidation(db.Model):
   def num_suitecase_comments(self, sequence):
     return sum([ 1 for comment in self.comments if comment.sequence == sequence ])
 
+  def sequence_comments(self, sequence):
+    seq = ''
+    for c in str(sequence):
+      if c.isdigit():
+        seq = f'{seq}{c}'
+      else:
+        break
+    seq = int(seq)
+    return Comment.query.where(Comment.sequence == seq).all()
+    
   def sequence_status(self, sequence):
     data = self.get_data()
-    if 'results' not in data:
-      return {}
-    data = data['results']
-    sequence = str(sequence)
-    if sequence in data:
-      status = data[sequence]
-      if isinstance(status, dict):
-        return status
-    return {}
+    status = dict()
+    comments = self.sequence_comments(sequence)
+    for comment in comments:
+      if comment.deleted:
+        continue
+      if comment.force_failure:
+        status['Manual Reject'] = False
+      elif comment.is_override:
+        status['Manual Override'] = True
+    if 'results' in data:
+      data = data['results']
+      sequence = str(sequence)
+      if sequence in data:
+        if isinstance(data[sequence], dict):
+          status.update(data[sequence])
+    return status
 
   def row_status(self, sequence):
+    comments = self.sequence_comments(sequence)
+    comment_status = ''
+    for comment in comments:
+      if comment.deleted:
+        continue
+      if comment.force_failure:
+        comment_status = 'failure'
+      elif comment.is_override:
+        comment_status = 'success'
+    if comment_status:
+      return comment_status
     data = self.get_data()
     if 'results' not in data:
       return 'no data'
@@ -497,6 +618,56 @@ class TestCase(db.Model):
 
   def __repr__(self):
     return f'<TestCase({self.id}, {self.function}, {self.data})>'
+
+  @classmethod
+  def get_by_id(cls, id):
+    return TestCase.query.where(TestCase.id == id).first()
+
+  @classmethod
+  def get_by_name_version(cls, name, version):
+    res = TestCase.query.where(TestCase.name == name and TestCase.version == version).first()
+    if res.name == name and res.version == version:
+      return res
+    return None
+
+  def to_dict(self):
+    return {
+      'id': self.id,
+      'name': self.name,
+      'version': self.version,
+      'description': self.description,
+      'function': self.function,
+      'data': self.data,
+      'approver_role': self.approver_role.name,
+      'archived': self.archived
+    }
+
+  @property
+  def is_locked(self):
+    return bool(self.suites)
+
+  def import_update(self, update_data):
+    if "meta" in update_data and update_data['meta'] == "match_only":
+      return
+    if "name" in update_data:
+      self.name = update_data["name"]
+    if "version" in update_data:
+      self.version = update_data["version"]
+    if "description" in update_data:
+      self.description = update_data["description"]
+    if "function" in update_data:
+      self.function = update_data["function"]
+    if "data" in update_data:
+      self.data = json.dumps(json.loads(update_data["data"]), indent=4)
+    if "approver_role_id" in update_data:
+      self.approver_role_id = update_data["approver_role_id"]
+    elif "approver_role" in update_data:
+      try:
+        self.approver_role = Role.query.where(Role.name == update_data["approver_role"])
+      except:
+        pass
+    if "archived" in update_data:
+      self.archived = update_data["archived"]
 
   @property
   def requirements(self):
@@ -590,4 +761,10 @@ class SuiteCase(db.Model):
   @property
   def description(self):
     return self.case.description
+
+  @staticmethod
+  def get_by_id(id):
+    return SuiteCase.query.where(SuiteCase.id == id).first()
+
+
   

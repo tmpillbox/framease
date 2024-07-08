@@ -3,7 +3,8 @@ import sqlalchemy as sa
 from flask import request
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField
-from wtforms import StringField, SubmitField, TextAreaField, IntegerField, SelectField, HiddenField, validators
+from wtforms import StringField, SubmitField, TextAreaField, IntegerField, SelectField
+from wtforms import BooleanField, HiddenField, validators
 from wtforms_components import read_only
 from wtforms.validators import ValidationError, DataRequired, Length
 from werkzeug.utils import secure_filename
@@ -61,3 +62,12 @@ class ValidationModelConfigurationFileSelectForm(FlaskForm):
 class NewDeviceValidationForm(FlaskForm):
   suite = SelectField('Test Suite', validators=[DataRequired()])
   submit = SubmitField('Add')
+
+
+class NewCommentForm(FlaskForm):
+  body = StringField('Comment', validators=[DataRequired()])
+  override = BooleanField('Manual Override')
+  reject = BooleanField('Manual Reject')
+  submit = SubmitField('Post')
+
+

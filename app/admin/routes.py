@@ -1,13 +1,18 @@
 import sqlalchemy as sa
 
-from flask import render_template, redirect, url_for, flash, request, current_app
+from flask import render_template, redirect, url_for, flash, request, current_app, jsonify
 from flask_login import current_user, login_required, login_user, logout_user
 from functools import wraps
 from urllib.parse import urlsplit
 
+import json
+import sys
+import traceback
+
 from app import db, plugins
 from app.admin import bp
 from app.admin.forms import EditProfileForm, NewTestSuiteForm, TestSuiteForm, AddSuiteCaseForm, RoleForm, EditRoleForm, NewTestCaseForm, TestCaseForm
+from app.admin.forms import ImportForm, ExportForm
 from app.main.forms import EmptyForm
 from app.models import User, Role, TestSuite, TestCase, DeviceValidation, Device
 from app.auth.email import send_password_reset_email
@@ -124,6 +129,8 @@ def deactivate_role(roleid):
 def suites():
   page = request.args.get('page', 1, type=int)
   form = NewTestSuiteForm()
+  import_form = ImportForm()
+  import_form
   if form.validate_on_submit():
     suite = TestSuite(name=form.name.data, version=form.version.data)
     db.session.add(suite)
@@ -138,7 +145,7 @@ def suites():
   prev_url = url_for('admin.suites', page=suites.prev_num) \
     if suites.has_prev else None
   return render_template('admin/suites.html', title='Roles Administration',
-    suites=suites, next_url=next_url, prev_url=prev_url, form=form)
+    suites=suites, next_url=next_url, prev_url=prev_url, form=form, import_form=import_form)
 
 #class TestSuite(db.Model):
 #  id: so.Mapped[int] = so.mapped_column(primary_key=True)
@@ -262,6 +269,70 @@ def suite_cases(suiteid):
   form.case.choices = [ (c.id, c.name) for c in all_cases if c not in cases ]
   return render_template('admin/suite_cases.html', suite=suite, cases=cases, form=form)
 
+@bp.route('/suite/<suiteid>/export')
+@login_required
+@admin_required
+def export_suite(suiteid):
+  suite = db.first_or_404(sa.select(TestSuite).where(TestSuite.id == suiteid))
+  form = ExportForm()
+  form.textdata.data = json.dumps(suite.to_dict(), indent=4)
+  return render_template('admin/export_suite.html', suite=suite, form=form)
+
+
+@bp.route('/suite/import', methods=['POST'])
+@login_required
+@admin_required
+def import_suite():
+  form = ImportForm()
+  if form.validate_on_submit():
+    suite_data = json.loads(form.textdata.data)
+    if 'id' in suite_data:
+      # Try to update existing suite
+      suite = db.first_or_404(sa.select(TestSuite).where(TestSuite.id == suite_data['id']))
+      if suite.is_locked:
+        flash('Unable to update Test Suite that is in use or marked final.')
+        return redirect(url_for('admin.suites'))
+      try:
+        suite.import_update(suite_data)
+        db.session.commit()
+        return redirect(url_for('admin.suite', suiteid=suite.id))
+      except:
+        print("Exception in import:")
+        print("-"*60)
+        traceback.print_exc(file=sys.stdout)
+        print("-"*60)
+        flash(f'Invalid Data (Update by id: {suite_data["id"]})')
+        db.session.rollback()
+      return redirect(url_for('admin.suites'))
+    elif 'name' in suite_data and 'version' in suite_data:
+      suite = TestSuite.get_by_name_version(suite_data['name'], suite_data['version'])
+      if suite:
+        if suite.is_locked:
+          flash('Unable to update Test Suite that is in use or marked final.')
+          return redirect(url_for('admin.suites'))
+        # Try to update existing suite
+        try:
+          suite.import_update(suite_data)
+          db.session.commit()
+          return redirect(url_for('admin.suite', suiteid=suite.id))
+        except:
+          flash('Invalid Data')
+          db.session.rollback()
+      else:
+        # Create new suite
+        try:
+          suite = TestSuite(name=suite_data['name'], version=suite_data['version'])
+          db.session.add(suite)
+          db.session.commit()
+          suite.import_update(suite_data)
+          db.session.commit()
+        except:
+          db.session.rollback()
+        return redirect(url_for('admin.suite', suiteid=suite.id))
+    else:
+      flash('Invalid Data')
+  return redirect(url_for('admin.suites'))
+
 
 @bp.route('/suite/<suiteid>/add_case', methods=['POST'])
 @login_required
@@ -314,9 +385,10 @@ def cases():
   all_roles = db.session.scalars(query).all()
   form.approver_role.choices = [ (role.id, role.name) for role in all_roles ]
   if form.validate_on_submit():
+    case_data = json.loads(form.data.data)
     case = TestCase(name=form.name.data, version=form.version.data,
       description=form.description.data, function=form.plugin.data,
-      data=form.data.data, approver_role_id=form.approver_role.data,
+      data=json.dumps(case_data, indent=4), approver_role_id=form.approver_role.data,
       archived=False)
     db.session.add(case)
     db.session.commit()
@@ -346,7 +418,7 @@ def case(caseid):
   form = TestCaseForm()
   form.approver_role.choices = [ (role.id, role.name) for role in all_roles ]
   if form.validate_on_submit():
-    case.data = form.data.data
+    case.data = json.dumps(json.loads(form.data.data), indent=4)
     case.description = form.description.data
     case.approver_role_id = form.approver_role.data
     db.session.commit()

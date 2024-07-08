@@ -95,3 +95,12 @@ class TestCaseForm(FlaskForm):
     read_only(self.name)
     read_only(self.version)
     read_only(self.plugin)
+
+
+class ImportForm(FlaskForm):
+  textdata = TextAreaField('JSON Data', validators=[DataRequired()])
+  submit = SubmitField('Import')
+
+
+class ExportForm(FlaskForm):
+  textdata = TextAreaField('JSON Data', validators=[DataRequired()])

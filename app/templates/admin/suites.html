@@ -7,9 +7,18 @@
   <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#collapseForm" aria-expanded="false" aria-controls="collapseForm">
     Create New Test Suite
   </button>
+  <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#collapseForm2" aria-expanded="false" aria-controls="collapseForm2">
+    Import Test Suite
+  </button>
   <div class="collapse" id="collapseForm">
     <div class="card card-body">
     {{ wtf.quick_form(form) }}
+    </div>
+  </div>
+  <div class="collapse" id="collapseForm2">
+    <div class="card card-body">
+      {% set action_url = url_for('admin.import_suite') %}
+      {{ wtf.quick_form(import_form, action=action_url) }}
     </div>
   </div>
   <hr>
@@ -40,6 +49,7 @@
           <div class="btn-group mr-2" role="group" aria-label="Actions">
             <a class="btn btn-primary{% if suite.archived or suite.final %} disabled{% endif %}" href="{{ url_for('admin.suite', suiteid=suite.id) }}">Edit</a>
             <a class="btn btn-primary{% if suite.archived or suite.final %} disabled{% endif %}" href="{{ url_for('admin.suite_cases', suiteid=suite.id) }}">Test Cases</a>
+            <a class="btn btn-primary" href="{{ url_for('admin.export_suite', suiteid=suite.id) }}">Export</a>
           </div>
           <div class="btn-group mr-2" role="group" aria-label="Actions">
           {% if suite.final %}

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "bootstrap_wtf.html" as wtf %}
 
 {% block content %}
     <table class="table table-hover">
@@ -17,6 +18,13 @@
                         {{ form.hidden_tag() }}
                         {{ form.submit(value='Run', class_='btn btn-primary') }}
                     </form>
+                </div>
+            </td>
+            <td>
+                <div class="btn-group mr-2" role="group" aria-label="Actions">
+                    <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target=".deleted-comment" aria-expanded="false">
+                      Show/Hide Deleted Comments
+                    </button>
                 </div>
             </td>
         </tr>
@@ -39,20 +47,20 @@
                     {% endfor %}
                 <td>
                     <div class="btn-group mr-2" role="group" aria-label="Actions">
-                        <a
-                            class="btn btn-primary"
-                            href="{{ url_for('main.validation_case_comment', deviceid=device.id, validationid=validation.id, sequence=suitecase.sequence) }}"
-                        >
+                        <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#collapseComments{{ suitecase.sequence }}" aria-expanded="false" aria-controls="collapseComments{{ suitecase.sequence }}">
                             Comments ({{ validation.num_suitecase_comments(suitecase.sequence) }})
-                        </a>
-                        {% if validation.submitted and not suitecase.successful %}
-                        <a
-                            class="btn btn-primary"
-                            href="{{ url_for('main.validation_case_override', deviceid=device.id, validationid=validation.id, sequence=suitecase.sequence) }}"
-                        >
-                            Override
-                        </a>
-                        {% endif %}
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            <tr class="collapse" id="collapseComments{{ suitecase.sequence }}">
+                <td colspan="4">
+                    {% for comment in validation.sequence_comments(suitecase.sequence) %}
+                        {% include "_comment.html" %}
+                    {% endfor %}
+                    <div class="card card-body">
+                      {% set action_url = url_for('main.validation_case_comment', deviceid=device.id,   validationid=validation.id, sequence=suitecase.sequence) %}
+                      {{ wtf.quick_form(comment_form, action=action_url, id=suitecase.sequence|string) }}
                     </div>
                 </td>
             </tr>
