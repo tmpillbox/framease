@@ -2,6 +2,7 @@ import sqlalchemy as sa
 
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SubmitField, FieldList, FormField, FieldList, SelectField, TextAreaField
+from wtforms import ValidationError
 from wtforms_components import read_only
 from wtforms.validators import ValidationError, DataRequired, Email, EqualTo, Length
 
@@ -79,6 +80,11 @@ class NewTestCaseForm(FlaskForm):
   data = TextAreaField('Plugin Data')
   approver_role = SelectField('Approver Role')
   submit = SubmitField('Add Case')
+
+  def check_name(self, name):
+    query = db.select(TestCase).where(TestCase.name == name and TestCase.version == self['version'])
+    if db.session.scalars(query).all():
+      raise ValidationError('Invalid name/version: in-use')
 
 
 class TestCaseForm(FlaskForm):

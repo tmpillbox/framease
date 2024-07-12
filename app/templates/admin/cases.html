@@ -12,6 +12,11 @@
     {{ wtf.quick_form(form) }}
     </div>
   </div>
+  <div class="btn-group mr-2" role="group" aria-label="Actions">
+    <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target=".collapse-archived" aria-expanded="false" aria-controls="collapseArchived">
+      Show/Hide Archived
+    </button>
+  </div>
   <hr>
   {% endif %}
   <table id="data" class="table table-striped table-hover align-middle">
@@ -25,7 +30,7 @@
       </tr>
     </thead>
     {% for case in cases %}
-      <tr>
+      <tr class="{% if case.archived %}collapse collapse-archived{% endif %}">
         <td>{{ case.name }}</td>
         <td>{{ case.version }}</td>
         <td>

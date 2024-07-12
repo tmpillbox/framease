@@ -2,6 +2,7 @@ import sqlalchemy as sa
 
 from flask import render_template, redirect, url_for, flash, request, current_app, jsonify
 from flask_login import current_user, login_required, login_user, logout_user
+from wtforms import ValidationError
 from functools import wraps
 from urllib.parse import urlsplit
 
@@ -130,8 +131,11 @@ def suites():
   page = request.args.get('page', 1, type=int)
   form = NewTestSuiteForm()
   import_form = ImportForm()
-  import_form
   if form.validate_on_submit():
+    name_check = TestSuite.get_by_name_version(form.name.data, form.version.data)
+    if name_check and name_check.name == form.name.data and name_check.version == form.version.data:
+      flash('Invalid name/version: in-use')
+      return redirect(url_for('admin.suites', page=page))
     suite = TestSuite(name=form.name.data, version=form.version.data)
     db.session.add(suite)
     db.session.commit()
@@ -285,52 +289,14 @@ def export_suite(suiteid):
 def import_suite():
   form = ImportForm()
   if form.validate_on_submit():
-    suite_data = json.loads(form.textdata.data)
-    if 'id' in suite_data:
-      # Try to update existing suite
-      suite = db.first_or_404(sa.select(TestSuite).where(TestSuite.id == suite_data['id']))
-      if suite.is_locked:
-        flash('Unable to update Test Suite that is in use or marked final.')
-        return redirect(url_for('admin.suites'))
-      try:
-        suite.import_update(suite_data)
-        db.session.commit()
-        return redirect(url_for('admin.suite', suiteid=suite.id))
-      except:
-        print("Exception in import:")
-        print("-"*60)
-        traceback.print_exc(file=sys.stdout)
-        print("-"*60)
-        flash(f'Invalid Data (Update by id: {suite_data["id"]})')
-        db.session.rollback()
+    try:
+      suite_data = json.loads(form.textdata.data)
+    except:
+      flash('Invalid data. Import failed.')
       return redirect(url_for('admin.suites'))
-    elif 'name' in suite_data and 'version' in suite_data:
-      suite = TestSuite.get_by_name_version(suite_data['name'], suite_data['version'])
-      if suite:
-        if suite.is_locked:
-          flash('Unable to update Test Suite that is in use or marked final.')
-          return redirect(url_for('admin.suites'))
-        # Try to update existing suite
-        try:
-          suite.import_update(suite_data)
-          db.session.commit()
-          return redirect(url_for('admin.suite', suiteid=suite.id))
-        except:
-          flash('Invalid Data')
-          db.session.rollback()
-      else:
-        # Create new suite
-        try:
-          suite = TestSuite(name=suite_data['name'], version=suite_data['version'])
-          db.session.add(suite)
-          db.session.commit()
-          suite.import_update(suite_data)
-          db.session.commit()
-        except:
-          db.session.rollback()
-        return redirect(url_for('admin.suite', suiteid=suite.id))
-    else:
-      flash('Invalid Data')
+    import_report = TestSuite.create_or_update_from_dict(suite_data)
+    return render_template('admin/import_report.html', report_data=import_report)
+  flash('Invalid data. Import failed.')
   return redirect(url_for('admin.suites'))
 
 
@@ -385,7 +351,14 @@ def cases():
   all_roles = db.session.scalars(query).all()
   form.approver_role.choices = [ (role.id, role.name) for role in all_roles ]
   if form.validate_on_submit():
-    case_data = json.loads(form.data.data)
+    try:
+      case_data = json.loads(form.data.data)
+    except:
+      case_data = {}
+    name_check = TestCase.get_by_name_version(form.name.data, form.version.data)
+    if name_check and name_check.name == form.name.data and name_check.version == form.version.data:
+      flash('Invalid name/version: in-use')
+      return redirect(url_for('admin.cases', page=page))
     case = TestCase(name=form.name.data, version=form.version.data,
       description=form.description.data, function=form.plugin.data,
       data=json.dumps(case_data, indent=4), approver_role_id=form.approver_role.data,
@@ -396,7 +369,12 @@ def cases():
   elif request.method == 'POST':
     flash(f'Error: {form.errors}')
 
-  query = sa.select(TestCase).order_by(TestCase.name.desc())
+  query = (
+    sa.select(TestCase)
+    .order_by(TestCase.archived)
+    .order_by(TestCase.name.asc())
+    .order_by(TestCase.version.asc())
+  )
   cases = db.paginate(query, page=page,
     per_page=current_user.page_size,
     error_out=False)
@@ -444,12 +422,14 @@ def archive_case(caseid):
   suites_using = [
     ( suitecase.suite.id, f'{suitecase.suite.name} ({suitecase.suite.version})' )
     for suitecase in case.suites
-    if suitecase.suite.archived is False
+    if suitecase.suite.archived is False \
+    and suitecase.suite.final is False
+
   ]
   if suites_using:
     flash('Test Case is in use. Please archive or unlink:')
     for suiteid, suite_name in suites_using:
-      flash('<a href="' + url_for('admin.suite', suiteid=suiteid) + ">" + suite_name + "</a>")
+      flash(suite_name)
     return redirect(url_for('admin.cases', page=request.args.get('page', 1, type=int)))
   form = EmptyForm()
   if form.validate_on_submit():
@@ -471,7 +451,20 @@ def unarchive_case(caseid):
     flash('Test Case Unarchived.')
   return redirect(url_for('admin.cases', page=request.args.get('page', 1, type=int)))
 
-
+@bp.route('/case/<caseid>/copy', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def copy_case(caseid):
+  case = db.first_or_404(sa.select(TestCase).where(TestCase.id == caseid))
+  form = CopyCase()
+  if form.validate_on_submit():
+    case_data = json.loads(form.data.data)
+    new_case = TestCase(name=form.name.data, version=form.version.data,
+      description=form.description.data, function=form.plugin.data,
+      data=json.dumps(case_data, indent=4), approver_role_id=form.approver_role.data,
+      archived=False)
+    db.session.add(new_case)
+    db.session.commit()
 
 @bp.route('/edit_user/<username>', methods=['GET', 'POST'])
 @login_required

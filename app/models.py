@@ -378,8 +378,11 @@ class TestSuite(db.Model):
   version: so.Mapped[str] = so.mapped_column(sa.String(12), nullable=True)
   archived: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=sa.false())
   final: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=sa.false())
+  __table_args__ = (
+    db.UniqueConstraint('name', 'version', name='_name_version_uc'),
+  )
 
-  validations: so.WriteOnlyMapped['DeviceValidation'] = so.relationship(back_populates='suite')
+  validations: so.WriteOnlyMapped['DeviceValidation'] = so.relationship(back_populates='suite', passive_deletes=True)
   cases: so.Mapped[List['SuiteCase']] = so.relationship('SuiteCase', primaryjoin='TestSuite.id == SuiteCase.suite_id')
 
   def __repr__(self):
@@ -426,6 +429,88 @@ class TestSuite(db.Model):
     if res.name == name and res.version == version:
       return res
     return None
+
+  @classmethod
+  def create_or_update_from_dict(cls, data):
+    report_data = list()
+    suite = None
+    if 'id' in data:
+      suite = cls.get_by_id(data['id'])
+      if suite is not None:
+        report_data.append( { 'h1': 'Success', 'detail': f'Found Test Suite by id: {data["id"]}: {str(suite)}'})
+      elif name in data and version in data:
+        suite = cls.get_by_name_version(data['name'], data['version'])
+        if suite is not None:
+          report_data.append( { 'h1': 'Error', 'warning': f'Attempt to create new Test Suite (id={data["id"]}) with existing name/version: {data["name"]} ({data["version"]})'})
+          return report_data
+        else:
+          suite = cls(id=data['id'], name=data['name'], version=data['version'], archived=False, final=False)
+          db.session.add(suite)
+          db.session.commit()
+          report_data.append( { 'h1': 'Success', 'detail': f'Create new Test Suite: {str(suite)}'})
+    elif 'name' in data and 'version' in data:
+      suite = cls.get_by_name_version(data['name'], data['version'])
+      if suite is not None:
+        report_data.append( { 'h1': 'Success', 'detail': f'Found Test Suite by name/version: {str(suite)}'})
+      else:
+        suite = cls(name=data['name'], version=data['version'], archived=False, final=False)
+        db.session.add(suite)
+        db.session.commit()
+        report_data.append( { 'h1': 'Success', 'detail': f'Create new Test Suite: {str(suite)}'})
+    if suite is None:
+      report_data.append( { 'h1': 'Error', 'warning': 'Unable to find or import Test Suite.'} )
+      return report_data
+    
+    # with db.session.begin_nested():
+    #   import_report = list()
+    #   if 'id' in suite_data:
+    #     with db.session.begin_nest():
+    #     # Try to update existing suite
+    #     suite = db.first_or_404(sa.select(TestSuite).where(TestSuite.id == suite_data['id']))
+    #     if suite.is_locked:
+    #       flash('Unable to update Test Suite that is in use or marked final.')
+    #       return redirect(url_for('admin.suites'))
+    #     try:
+    #       suite.import_update(suite_data)
+    #       db.session.commit()
+    #       return redirect(url_for('admin.suite', suiteid=suite.id))
+    #     except:
+    #       print("Exception in import:")
+    #       print("-"*60)
+    #       traceback.print_exc(file=sys.stdout)
+    #       print("-"*60)
+    #       flash(f'Invalid Data (Update by id: {suite_data["id"]})')
+    #       db.session.rollback()
+    #     return redirect(url_for('admin.suites'))
+    #   elif 'name' in suite_data and 'version' in suite_data:
+    #     suite = TestSuite.get_by_name_version(suite_data['name'], suite_data['version'])
+    #     if suite:
+    #       if suite.is_locked:
+    #         flash('Unable to update Test Suite that is in use or marked final.')
+    #         return redirect(url_for('admin.suites'))
+    #       # Try to update existing suite
+    #       try:
+    #         suite.import_update(suite_data)
+    #         db.session.commit()
+    #         return redirect(url_for('admin.suite', suiteid=suite.id))
+    #       except:
+    #         flash('Invalid Data')
+    #         db.session.rollback()
+    #     else:
+    #       # Create new suite
+    #       try:
+    #         suite = TestSuite(name=suite_data['name'], version=suite_data['version'])
+    #         db.session.add(suite)
+    #         db.session.commit()
+    #         suite.import_update(suite_data)
+    #         db.session.commit()
+    #       except:
+    #         db.session.rollback()
+    #       return redirect(url_for('admin.suite', suiteid=suite.id))
+    #   else:
+    #     flash('Invalid Data')
+
+
 
   def _import_delete(self, meta_delete):
     del_targets = list()
@@ -611,6 +696,9 @@ class TestCase(db.Model):
   data: so.Mapped[str] = so.mapped_column(sa.Text(), nullable=True)
   approver_role_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey(Role.id), nullable=True)
   archived: so.Mapped[bool] = so.mapped_column(sa.Boolean, server_default=sa.false())
+  __table_args__ = (
+    db.UniqueConstraint('name', 'version', name='_name_version_uc'),
+  )
 
   suites: so.Mapped[List['SuiteCase']] = so.relationship('SuiteCase', primaryjoin='TestCase.id == SuiteCase.case_id')
 
