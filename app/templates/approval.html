@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% import "bootstrap_wtf.html" as wtf %}
+
+{% block content %}
+    <table class="table table-hover">
+        <tr>
+            <td>
+                <h1>{{ validation.name }}</h1>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <div class="btn-group mr-2" role="group" aria-label="Actions">
+                    <a class="btn btn-primary" href="{{ url_for('main.device', deviceid=device.id) }}">Return</a>
+                </div>
+                <div class="btn-group mr-2" role="group" aria-label="Actions">
+                    <form action="{{ url_for('main.validation_run', deviceid=device.id, validationid=validation.id) }}" method="POST">
+                        {{ form.hidden_tag() }}
+                        {{ form.submit(value='Run', class_='btn btn-primary') }}
+                    </form>
+                </div>
+            </td>
+            <td>
+                <div class="btn-group mr-2" role="group" aria-label="Actions">
+                    <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target=".deleted-comment" aria-expanded="false">
+                      Show/Hide Deleted Comments
+                    </button>
+                </div>
+            </td>
+        </tr>
+    </table>
+    <hr>
+    <h2>Items</h2>
+    <table class="table table-hover">
+        {% for suitecase in validation.suite.get_cases_in_order() %}
+            {% set row_status = validation.row_status(suitecase.sequence) %}
+            <tr class="{% if row_status == 'success' %}table-success{% elif row_status == 'failure' %}table-danger{% elif row_status == 'incomplete' %}table-warning{% else %}table-secondary{% endif %}">
+                <th>{{ suitecase.sequence }}</th>
+                <th>{{ suitecase.description }}</th>
+                <td>
+                    {% for desc, status in validation.sequence_status(suitecase.sequence).items() %}
+                        {% if status %}
+                            <span class="badge rounded-pill text-bg-success">✔ {{ desc }}</span>
+                        {% else %}
+                            <span class="badge rounded-pill text-bg-danger">❌ {{ desc }}</span>
+                        {% endif %}
+                    {% endfor %}
+                <td>
+                    <div class="btn-group mr-2" role="group" aria-label="Actions">
+                        <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#collapseComments{{ suitecase.sequence }}" aria-expanded="false" aria-controls="collapseComments{{ suitecase.sequence }}">
+                            Comments ({{ validation.num_suitecase_comments(suitecase.sequence) }})
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            <tr class="collapse" id="collapseComments{{ suitecase.sequence }}">
+                <td colspan="4">
+                    {% for comment in validation.sequence_comments(suitecase.sequence) %}
+                        {% include "_comment.html" %}
+                    {% endfor %}
+                    <div class="card card-body">
+                      {% set action_url = url_for('main.validation_case_comment', deviceid=device.id,   validationid=validation.id, sequence=suitecase.sequence) %}
+                      {{ wtf.quick_form(comment_form, action=action_url, id=suitecase.sequence|string) }}
+                    </div>
+                </td>
+            </tr>
+        {% endfor %}
+    </table>
+    <hr>
+    <h2>Comments</h2>
+    <table class="table table-hover">
+        <tr>
+            <th>Author</th>
+            <th>When</th>
+            <th>Comment</th>
+        </tr>
+        {% for comment in validation.comments %}
+            {% if comment.sequence == 0 %}
+                <tr>
+                    <td>{{comment.author.display_name}}</td>
+                    <td>{{moment(comment.timestamp).format('LLL')}}</td>
+                    <td>{{comment.body}}</td>
+                </tr>
+            {% endif %}
+        {% endfor %}
+    </table>
+{% endblock %}

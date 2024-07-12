@@ -3,6 +3,12 @@ import re
 import sys
 import traceback
 
+from app.utils import Result
+
+NONE = Result.Status.NONE
+PASS = Result.Status.PASS
+FAIL = Result.Status.FAIL
+
 
 plugin_name = 'fg_each'
 
@@ -88,14 +94,14 @@ def check(data):
       elif spec_type == 'usergroup':
         context = data['fgt_cli_configuration']['hierarchy']['config user group']
       else:
-        result[description + ' [ERROR: type]'] = False
+        result[description + ' [ERROR: type]'] = Result(description + ' [ERROR: type]', FAIL)
         continue
       if select.startswith('id:'):
         match_entry = re.split(pipe_escape_split, select[3:])
       elif select == 'all' or select == 'any':
         match_entry = True
       else:
-        result[description + ' [ERROR: select]'] = False
+        result[description + ' [ERROR: select]'] = Result(description + ' [ERROR: select]', FAIL)
         continue
       match_count = 0
       pass_count = 0
@@ -107,10 +113,10 @@ def check(data):
           print(f'# DEBUG:   description: {description}')
           match_count += 1
           if fail_on_match:
-            result[description + f' ({matched} found)'] = False
+            result[description + f' ({matched} found)'] = Result(description + f' ({matched} found)', FAIL)
             fail_count += 1
           elif pass_on_match:
-            result[description + f' ({matched} found)'] = True
+            result[description + f' ({matched} found)'] = Result(description + f' ({matched} found)', PASS)
             pass_count += 1
           else:
             res = validate_setting(ctx, setting, value, or_empty=or_empty, partial_match=partial_match)
@@ -119,22 +125,46 @@ def check(data):
             else:
               fail_count += 1
       if fail_on_match:
-        result[description + f' (user not found)'] = True
+        result[description + f' (user not found)'] = Result(description + f' (user not found)', PASS)
       else:
         if pass_threshhold == 'all':
-          result[description + f' ({pass_count} pass/{fail_count} fail/{match_count} matched)'] = True if pass_count and not fail_count else False
+          result[description + f' ({pass_count} pass/{fail_count} fail/{match_count} matched)'] = (
+            Result(description + f' ({pass_count} pass/{fail_count} fail/{match_count} matched)', PASS)
+            if pass_count and not fail_count else
+            Result(description + f' ({pass_count} pass/{fail_count} fail/{match_count} matched)', FAIL)
+          )
         elif pass_threshhold == 'any':
-          result[description + f' ({pass_count} pass/{fail_count} fail/{match_count} matched)'] = True if pass_count else False
+          result[description + f' ({pass_count} pass/{fail_count} fail/{match_count} matched)'] = (
+            Result(description + f' ({pass_count} pass/{fail_count} fail/{match_count} matched)', PASS)
+            if pass_count else
+            Result(description + f' ({pass_count} pass/{fail_count} fail/{match_count} matched)', FAIL)
+          )
         elif pass_threshhold == 'none':
-          result[description + f' ({fail_count} pass/{pass_count} fail/{match_count} matched)'] = True if fail_count and not pass_count else False
+          result[description + f' ({fail_count} pass/{pass_count} fail/{match_count} matched)'] = (
+            Result(description + f' ({fail_count} pass/{pass_count} fail/{match_count} matched)', PASS)
+            if fail_count and not pass_count else
+            Result(description + f' ({fail_count} pass/{pass_count} fail/{match_count} matched)', FAIL)
+          )
         elif pass_threshhold.isdigit():
           pass_threshhold = int(pass_threshhold)
           if pass_threshhold > 0:
-            result[description + f' ({pass_count} pass/{fail_count} fail/{match_count} matched)'] = True if pass_count > pass_threshhold else False
+            result[description + f' ({pass_count} pass/{fail_count} fail/{match_count} matched)'] = (
+              Result(description + f' ({pass_count} pass/{fail_count} fail/{match_count} matched)', PASS)
+              if pass_count > pass_threshhold else
+              Result(description + f' ({pass_count} pass/{fail_count} fail/{match_count} matched)', FAIL)
+            )
           elif pass_threshhold == 0:
-            result[description + f' ({fail_count} pass/{pass_count} fail/{match_count} matched)'] = True if fail_count and not pass_count else False
+            result[description + f' ({fail_count} pass/{pass_count} fail/{match_count} matched)'] = (
+              Result(description + f' ({fail_count} pass/{pass_count} fail/{match_count} matched)', PASS)
+              if fail_count and not pass_count else
+              Result(description + f' ({fail_count} pass/{pass_count} fail/{match_count} matched)', FAIL)
+            )
           elif pass_threadhold < 0:
-            result[description + f' ({fail_count} pass/{pass_count} fail/{match_count} matched)'] = True if fail_count and not pass_count else False
+            result[description + f' ({fail_count} pass/{pass_count} fail/{match_count} matched)'] = (
+              Result(description + f' ({fail_count} pass/{pass_count} fail/{match_count} matched)', PASS)
+              if fail_count and not pass_count else
+              Result(description + f' ({fail_count} pass/{pass_count} fail/{match_count} matched)', FAIL)
+            )
     return result
   except:
     print("Exception in user code:")
