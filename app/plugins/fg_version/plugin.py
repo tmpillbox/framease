@@ -1,5 +1,11 @@
 import json
 
+from app.utils import Result
+
+NONE = Result.Status.NONE
+PASS = Result.Status.PASS
+FAIL = Result.Status.FAIL
+
 
 plugin_name = 'fg_version'
 
@@ -28,9 +34,9 @@ def check(data):
   try:
     conf = data['fgt_cli_configuration']
     if conf['fw_version'] == data['parameters']['fw_version']:
-      return { description: True }
+      return { description: Result(description, PASS) }
     else:
-      return { description + f' ({conf["fw_version"]})': False}
+      return { description + f' ({conf["fw_version"]})': Result(description + f' ({conf["fw_version"]})', FAIL) }
   except:
     pass
-  return { description: False }
+  return { description: Result(description, FAIL) }

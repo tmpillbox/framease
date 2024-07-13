@@ -2,6 +2,14 @@ import json
 import re
 import sys
 
+from app.utils import Result
+
+NONE = Result.Status.NONE
+PASS = Result.Status.PASS
+FAIL = Result.Status.FAIL
+WARN = Result.Status.WARN
+
+
 plugin_name = 'manual'
 
 usage = '''plugin: manual
@@ -25,7 +33,7 @@ def check(data):
   try:
     for step in data['parameters']['manual_checks']:
       description = '[MANUAL CHECK] ' + step['description']
-      result[description] = False
+      result[description] = Result(description, WARN, approval_status=WARN)
     return result
   except:
     print('Unhandled exception', sys.exc_info())    

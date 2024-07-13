@@ -1,6 +1,12 @@
 import json
 import re
 
+from app.utils import Result
+
+NONE = Result.Status.NONE
+PASS = Result.Status.PASS
+FAIL = Result.Status.FAIL
+
 
 plugin_name = 'fg_setting'
 
@@ -54,7 +60,10 @@ def check(data):
       context = data['fgt_cli_configuration']['hierarchy']
       for path in config_path:
         context = context[path]
-      result[description] = validate_setting(context, setting, value, or_empty=or_empty, partial_match=partial_match)
+      if validate_setting(context, setting, value, or_empty=or_empty, partial_match=partial_match):
+        result[description] = Result(description, PASS)
+      else:
+        result[description] = Result(description, FAIL)
     return result
   except:
     pass
