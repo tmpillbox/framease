@@ -1,6 +1,6 @@
 import json
 
-from app.utils import Result
+from app.utils.result import Result
 
 NONE = Result.Status.NONE
 PASS = Result.Status.PASS
