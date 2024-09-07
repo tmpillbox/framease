@@ -14,7 +14,7 @@ import traceback
 
 from datetime import datetime, timezone, timedelta
 from hashlib import md5
-from flask import current_app, url_for, jsonify
+from flask import current_app, flash, url_for, jsonify
 from flask_login import UserMixin, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.sql import false
@@ -25,6 +25,7 @@ from app import db, login
 
 from app import plugins as _plugins
 from app import validation_models as _validation_models
+from app.utils.result import Results, Result
 
 def iter_namespace(ns_pkg):
   # Specifying the second argument (prefix) to iter_modules makes the
@@ -438,7 +439,7 @@ class TestSuite(db.Model):
       suite = cls.get_by_id(data['id'])
       if suite is not None:
         report_data.append( { 'h1': 'Success', 'detail': f'Found Test Suite by id: {data["id"]}: {str(suite)}'})
-      elif name in data and version in data:
+      elif 'name' in data and 'version' in data:
         suite = cls.get_by_name_version(data['name'], data['version'])
         if suite is not None:
           report_data.append( { 'h1': 'Error', 'warning': f'Attempt to create new Test Suite (id={data["id"]}) with existing name/version: {data["name"]} ({data["version"]})'})
@@ -540,7 +541,8 @@ class TestSuite(db.Model):
             self._import_delete(meta_delete)
     if 'id' in update_data and update_data['id'] != self.id:
       flash(f'Invalid import data: "id": {update_data["id"]}')
-      raise ValidationError
+      #raise ValidationError
+      raise ValueError
     if 'name' in update_data:
       self.name = update_data['name']
     if 'version' in update_data:
@@ -619,25 +621,29 @@ class DeviceValidation(db.Model):
       else:
         break
     seq = int(seq)
-    return Comment.query.where(Comment.sequence == seq).all()
+    #return Comment.query.where(Comment.sequence == seq).all()
+    return [ comment for comment in self.comments if comment.sequence == seq ]
     
   def sequence_status(self, sequence):
     data = self.get_data()
-    status = dict()
+    status = Results()
     comments = self.sequence_comments(sequence)
     for comment in comments:
       if comment.deleted:
         continue
       if comment.force_failure:
-        status['Manual Reject'] = False
+        #status['Manual Reject'] = False
+        status.add(Result('Manual Reject', Result.Status.FAIL))
       elif comment.is_override:
-        status['Manual Override'] = True
+        #status['Manual Override'] = True
+        status.add(Result('Manual Override', Result.Status.PASS))
     if 'results' in data:
-      data = data['results']
+      data = { key:Results.fromJSON(val) for key, val in data['results'].items() }
       sequence = str(sequence)
       if sequence in data:
-        if isinstance(data[sequence], dict):
-          status.update(data[sequence])
+        #if isinstance(data[sequence], dict):
+        #  status.update(data[sequence])
+        status |= data[sequence]        
     return status
 
   def row_status(self, sequence):
@@ -685,7 +691,6 @@ class DeviceValidation(db.Model):
     self.running = True
     db.session.add(task)
     db.session.commit()
-
 
 class TestCase(db.Model):
   id: so.Mapped[int] = so.mapped_column(primary_key=True)

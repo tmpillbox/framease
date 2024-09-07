@@ -1,6 +1,6 @@
 import json
 
-from app.utils.result import Result
+from app.utils.result import Results, Result
 
 NONE = Result.Status.NONE
 PASS = Result.Status.PASS
@@ -31,12 +31,15 @@ def check(data):
   except:
     pass
   description = f'Software Version is ' + data['parameters']['fw_version']
+  result = Results()
   try:
     conf = data['fgt_cli_configuration']
     if conf['fw_version'] == data['parameters']['fw_version']:
-      return { description: Result(description, PASS) }
+      result += Result(description, PASS)
     else:
-      return { description + f' ({conf["fw_version"]})': Result(description + f' ({conf["fw_version"]})', FAIL) }
+      result += Result(description + f' ({conf["fw_version"]})', FAIL)
+    return result
   except:
     pass
-  return { description: Result(description, FAIL) }
+  result += Result(description, FAIL)
+  return result

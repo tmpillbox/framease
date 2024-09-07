@@ -45,10 +45,13 @@ def run_validation(user_id, device_validation_id):
       seq = str(suitecase.sequence)
       case = suitecase.case
       result = case.run(json.dumps(device_model_data))
-      if seq not in results:
-        results[seq] = result
-      else:
-        results[seq].update(result)
+      print(repr(result))
+      if result:
+        result = result.toJSON()
+        if seq not in results:
+          results[seq] = result
+        else:
+          results[seq].update(result)
       #print(f'# DEBUG: seq <{seq}> result: {result} results: {results}')
     validation.data = json.dumps(validation_data)
   except Exception:

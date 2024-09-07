@@ -38,11 +38,13 @@
                 <th>{{ suitecase.sequence }}</th>
                 <th>{{ suitecase.description }}</th>
                 <td>
-                    {% for desc, status in validation.sequence_status(suitecase.sequence).items() %}
-                        {% if status %}
-                            <span class="badge rounded-pill text-bg-success">✔ {{ desc }}</span>
+                    {% for result in validation.sequence_status(suitecase.sequence).results %}
+                        {% if result.validation_status == result.Status.PASS %}
+                            <span class="badge rounded-pill text-bg-success">✔ {{ result.description }}</span>
+                        {% elif result.validation_status == result.Status.FAIL %}
+                            <span class="badge rounded-pill text-bg-danger">❌ {{ result.description }}</span>
                         {% else %}
-                            <span class="badge rounded-pill text-bg-danger">❌ {{ desc }}</span>
+                            <span class="badge rounded-pill text-bg-warning">⚠️ {{ result.description }}</span>
                         {% endif %}
                     {% endfor %}
                 <td>

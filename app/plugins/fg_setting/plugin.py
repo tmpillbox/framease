@@ -1,7 +1,7 @@
 import json
 import re
 
-from app.utils.result import Result
+from app.utils.result import Result, Results
 
 NONE = Result.Status.NONE
 PASS = Result.Status.PASS
@@ -48,7 +48,7 @@ pipe_escape_split = r'(?<!\\)\|'
 def check(data):
   if isinstance(data, str):
     data = json.loads(data)
-  result = dict()
+  result = Results()
   try:
     for spec in data['parameters']['setting_specs']:
       config_path = spec['config_path']
@@ -61,9 +61,9 @@ def check(data):
       for path in config_path:
         context = context[path]
       if validate_setting(context, setting, value, or_empty=or_empty, partial_match=partial_match):
-        result[description] = Result(description, PASS)
+        result += Result(description, PASS)
       else:
-        result[description] = Result(description, FAIL)
+        result += Result(description, FAIL)
     return result
   except:
     pass

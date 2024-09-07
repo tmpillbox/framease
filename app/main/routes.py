@@ -294,3 +294,18 @@ def validation_case_override(deviceid, validationid, sequence):
     deviceid=deviceid, validationid=validationid, sequence=sequence,
     form=form)
 
+
+@bp.route('/approvals', methods=['GET'])
+@login_required
+def approvals():
+  page = request.args.get('page', 1, type=int)
+  query = sa.select(DeviceValidation).where(DeviceValidation.approved == False and DeviceValidation.submitted == True)
+  approvals = db.paginate(query, page=page,
+                          per_page=current_user.page_size,
+                          error_out=False)
+  next_url = url_for('main.approvals', page=approvals.next_num) \
+    if approvals.has_next else None
+  prev_url = url_for('main.approvals', page=approvals.prev_num) \
+    if approvals.has_prev else None
+  return render_template('main/approvals.html', title='QA Pending Approvals',
+                         approvals=approvals, next_url=next_url, prev_url=prev_url)
