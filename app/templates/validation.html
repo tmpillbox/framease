@@ -34,7 +34,7 @@
     <table class="table table-hover">
         {% for suitecase in validation.suite.get_cases_in_order() %}
             {% set row_status = validation.row_status(suitecase.sequence) %}
-            <tr class="{% if row_status == 'success' %}table-success{% elif row_status == 'failure' %}table-danger{% elif row_status == 'incomplete' %}table-warning{% else %}table-secondary{% endif %}">
+            <tr class="{% if row_status == 'success' %}table-success{% elif row_status == 'failure' %}table-danger{% elif row_status == 'warning' %}table-warning{% elif row_status == 'incomplete' %}table-warning{% else %}table-secondary{% endif %}">
                 <th>{{ suitecase.sequence }}</th>
                 <th>{{ suitecase.description }}</th>
                 <td>

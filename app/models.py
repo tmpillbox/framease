@@ -665,16 +665,19 @@ class DeviceValidation(db.Model):
     if sequence in results:
       statuses = results[sequence]
     elif str(sequence) in results:
-      statuses = results[str(sequence)]
+      try:
+        statuses = Results.fromJSON(results[str(sequence)])
+      except:
+        return 'no data'
     else:
       return 'no data'
-    if not isinstance(statuses, dict):
-      return 'no data'
-    statuses = [ v for v in statuses.values() ]
-    if all(statuses):
+    statuses = [ r.validation_status for r in statuses.results ]
+    if all(status == Result.Status.PASS for status in statuses):
       return 'success'
-    if not any(statuses):
+    if any(status == Result.Status.FAIL for status in statuses):
       return 'failure'
+    if any(status == Result.Status.WARN for status in statuses):
+      return 'warning'
     else:
       return 'incomplete'
 
